@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>CardioScan AI | MED-OS Clinical Dashboard</title>
+    <meta name="description" content="CardioScan AI - Advanced cardiovascular risk assessment using 13 clinical biomarkers and neural network inference."/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=JetBrains+Mono:wght@100..800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#dbfcff",
+                        "surface-variant": "#353437",
+                        "outline": "#849495",
+                        "surface-container-lowest": "#0e0e10",
+                        "on-background": "#e5e1e4",
+                        "on-surface": "#e5e1e4",
+                        "inverse-on-surface": "#313032",
+                        "surface-dim": "#131315",
+                        "on-tertiary": "#680008",
+                        "background": "#131315",
+                        "surface-container-low": "#1c1b1d",
+                        "error": "#ffb4ab",
+                        "error-container": "#93000a",
+                        "on-error-container": "#ffdad6",
+                        "surface-container": "#201f22",
+                        "inverse-surface": "#e5e1e4",
+                        "outline-variant": "#3b494b",
+                        "surface-container-highest": "#353437",
+                        "surface-tint": "#00dbe9",
+                        "on-primary": "#00363a",
+                        "surface": "#131315",
+                        "surface-container-high": "#2a2a2c",
+                        "primary-container": "#00f0ff",
+                        "surface-bright": "#39393b",
+                        "on-surface-variant": "#b9cacb",
+                        "on-primary-container": "#006970",
+                        "tint": "#00dbe9",
+                    },
+                    fontFamily: {
+                        "headline": ["Geist", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                        "body": ["Geist", "sans-serif"],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'scan': 'scan 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        scan: {
+                            '0%, 100%': { opacity: '0.3' },
+                            '50%': { opacity: '1' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #131315;
+            color: #e5e1e4;
+            overflow-x: hidden;
+            font-family: 'Geist', sans-serif;
+        }
+        .clinical-panel {
+            background: #1c1b1d;
+            border: 1px solid #3b494b;
+        }
+        .sidebar-active {
+            background: rgba(0, 219, 233, 0.1);
+            color: #00dbe9;
+            border-right: 2px solid #00dbe9;
+        }
+        .heart-anchor {
+            filter: drop-shadow(0 0 20px rgba(0, 219, 233, 0.15));
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            transition: opacity 0.5s ease;
+        }
+        .med-input {
+            background-color: transparent !important;
+            border: none !important;
+            border-bottom: 1px solid #3b494b !important;
+            color: #fff !important;
+            font-family: 'Geist', sans-serif;
+            font-weight: 700;
+            padding: 4px 0 !important;
+            width: 100%;
+            transition: border-color 0.3s ease;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+        .med-input:focus {
+            outline: none !important;
+            border-bottom-color: #00dbe9 !important;
+            box-shadow: none !important;
+            background-color: transparent !important;
+        }
+        .med-input:hover {
+            border-bottom-color: #849495 !important;
+        }
+        .med-select {
+            background-color: transparent !important;
+            border: none !important;
+            border-bottom: 1px solid #3b494b !important;
+            color: #fff !important;
+            font-family: 'Geist', sans-serif;
+            font-weight: 700;
+            padding: 4px 0 !important;
+            width: 100%;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+        .med-select:focus {
+            outline: none !important;
+            border-bottom-color: #00dbe9 !important;
+            box-shadow: none !important;
+            background-color: transparent !important;
+        }
+        .med-select option {
+            background-color: #1c1b1d !important;
+            color: #e5e1e4 !important;
+        }
+        .toggle-pill {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: #353437;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .toggle-pill.active {
+            background: #00dbe9;
+        }
+        .toggle-pill::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+        .toggle-pill.active::after {
+            transform: translateX(20px);
+        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3b494b; border-radius: 10px; }
+        .result-glow {
+            box-shadow: 0 0 60px rgba(0, 219, 233, 0.15);
+        }
+        .result-glow-danger {
+            box-shadow: 0 0 60px rgba(255, 180, 171, 0.15);
+        }
+        @media (max-width: 1024px) {
+            .sidebar-desktop { display: none; }
+            .main-content { margin-left: 0 !important; }
+        }
+        .bar-anim {
+            transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .panel-hover:hover {
+            border-color: #00dbe9;
+            transition: border-color 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+
+<!-- ==================== TOP NAV BAR ==================== -->
+<header id="topNav" class="fixed top-0 z-50 flex justify-between items-center w-full px-6 lg:px-10 h-16 bg-surface-container-high border-b border-outline-variant">
+    <div class="flex items-center gap-4 lg:gap-6">
+        <div class="font-headline text-lg lg:text-xl font-bold tracking-tight text-white">CARDIO<span class="text-surface-tint">SCAN</span></div>
+        <div class="hidden md:block h-4 w-[1px] bg-outline-variant"></div>
+        <div class="hidden md:block font-mono text-xs text-on-surface-variant tracking-wider">MED-OS v2.1</div>
+    </div>
+    <div class="flex items-center gap-4 lg:gap-8">
+        <div class="hidden lg:flex relative items-center bg-surface-container px-4 py-1.5 rounded border border-outline-variant w-72 focus-within:border-surface-tint transition-colors">
+            <span class="material-symbols-outlined text-on-surface-variant text-lg mr-2">search</span>
+            <input class="bg-transparent border-none focus:ring-0 text-xs font-mono w-full text-white placeholder:opacity-30" placeholder="SEARCH CLINICAL DATABASE..." type="text"/>
+        </div>
+        <div class="flex gap-3 lg:gap-5">
+            <button class="material-symbols-outlined text-on-surface-variant hover:text-surface-tint transition-colors text-xl" title="Alerts">warning</button>
+            <button class="material-symbols-outlined text-on-surface-variant hover:text-surface-tint transition-colors text-xl" title="Notifications">notifications</button>
+            <button class="material-symbols-outlined text-on-surface-variant hover:text-surface-tint transition-colors text-xl" title="Settings">settings</button>
+        </div>
+        <div class="hidden md:flex items-center gap-3 border-l border-outline-variant pl-6">
+            <div class="text-right">
+                <div class="font-mono text-[9px] text-on-surface-variant">CLINICIAN</div>
+                <div class="font-body text-xs font-medium uppercase">Dr. User</div>
+            </div>
+            <div class="w-8 h-8 rounded bg-surface-tint/20 border border-outline-variant flex items-center justify-center">
+                <span class="material-symbols-outlined text-surface-tint text-sm">person</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- ==================== SIDE NAV ==================== -->
+<aside class="sidebar-desktop fixed left-0 top-16 h-[calc(100vh-4rem)] w-60 bg-surface border-r border-outline-variant flex flex-col z-40">
+    <div class="p-6 border-b border-outline-variant">
+        <div class="flex items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-surface-tint animate-pulse"></div>
+            <div>
+                <div class="font-mono text-xs font-bold text-white uppercase">CardioScan Node</div>
+                <div class="font-mono text-[9px] text-on-surface-variant" id="engineStatus">CHECKING...</div>
+            </div>
+        </div>
+    </div>
+    <nav class="flex-1 py-4">
+        <a class="sidebar-active flex items-center px-6 py-3 gap-3" href="#" id="navVitals">
+            <span class="material-symbols-outlined text-lg">monitor_heart</span>
+            <span class="font-mono text-xs uppercase tracking-wide">Vitals Input</span>
+        </a>
+        <a class="flex items-center px-6 py-3 gap-3 text-on-surface-variant hover:bg-surface-container transition-colors" href="#" id="navStats" onclick="showStatsPanel(); return false;">
+            <span class="material-symbols-outlined text-lg">analytics</span>
+            <span class="font-mono text-xs uppercase tracking-wide">Risk Analysis</span>
+        </a>
+        <a class="flex items-center px-6 py-3 gap-3 text-on-surface-variant hover:bg-surface-container transition-colors" href="#" id="navDataset" onclick="showDatasetPanel(); return false;">
+            <span class="material-symbols-outlined text-lg">database</span>
+            <span class="font-mono text-xs uppercase tracking-wide">Dataset</span>
+        </a>
+    </nav>
+    <div class="p-6 mt-auto space-y-4 border-t border-outline-variant">
+        <button onclick="runAnalysis()" class="w-full py-3 bg-surface-tint/10 text-surface-tint font-mono text-[10px] font-bold tracking-widest hover:bg-surface-tint/20 transition-colors uppercase border border-surface-tint/30">
+            Run AI Analysis
+        </button>
+        <div class="space-y-1">
+            <div class="flex items-center gap-2 text-on-surface-variant py-1">
+                <span class="material-symbols-outlined text-sm">terminal</span>
+                <span class="font-mono text-[9px] uppercase" id="modeIndicator">Loading...</span>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<!-- ==================== MAIN CONTENT ==================== -->
+<main class="main-content lg:ml-60 mt-16 p-4 lg:p-8 min-h-screen bg-background">
+<div class="max-w-[1440px] mx-auto">
+
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-6 border-b border-outline-variant gap-4">
+        <div>
+            <h1 class="font-headline text-xl lg:text-2xl text-white font-bold tracking-tight">CLINICAL DIAGNOSTIC <span class="text-surface-tint">DASHBOARD</span></h1>
+            <div class="flex items-center gap-3 mt-1">
+                <div class="status-dot bg-surface-tint" id="mainStatusDot"></div>
+                <p class="font-mono text-xs text-on-surface-variant uppercase tracking-wider">Status: <span class="text-white" id="mainStatusText">Initializing</span></p>
+            </div>
+        </div>
+        <div class="flex gap-4">
+            <div class="clinical-panel px-4 py-2 flex flex-col gap-1">
+                <div class="text-[9px] font-mono text-on-surface-variant uppercase">Dataset</div>
+                <div class="font-mono text-sm text-surface-tint" id="headerRecordCount">--</div>
+            </div>
+            <div class="clinical-panel px-4 py-2 flex flex-col gap-1">
+                <div class="text-[9px] font-mono text-on-surface-variant uppercase">Risk Rate</div>
+                <div class="font-mono text-sm" id="headerRiskRate">--</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========= VITALS INPUT PANEL (default view) ========= -->
+    <div id="vitalsPanel">
+    <form id="diagnosticForm">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- ===== LEFT COLUMN: Demographics + Vitals ===== -->
+        <div class="col-span-1 lg:col-span-3 space-y-6">
+
+            <!-- Patient Profile -->
+            <div class="clinical-panel p-5 panel-hover">
+                <div class="font-mono text-[10px] text-on-surface-variant uppercase mb-4 tracking-widest border-b border-outline-variant pb-2">Patient Profile</div>
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <label class="font-mono text-[9px] text-on-surface-variant uppercase block mb-1" for="inp_age">Age (Years)</label>
+                        <input id="inp_age" name="age" type="number" required class="med-input text-2xl" value="54" min="1" max="120"/>
+                    </div>
+                    <div>
+                        <label class="font-mono text-[9px] text-on-surface-variant uppercase block mb-1" for="inp_sex">Biological Sex</label>
+                        <select id="inp_sex" name="sex" required class="med-select text-2xl">
+                            <option value="1">Male</option>
+                            <option value="0">Female</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Blood Pressure -->
+            <div class="clinical-panel p-5 border-l-4 border-l-surface-tint panel-hover">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest">Blood Pressure</div>
+                    <span class="text-[9px] font-mono text-surface-tint" id="bpStatus">INPUT</span>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <input id="inp_trestbps" name="trestbps" type="number" required class="med-input text-4xl w-20" value="131" min="60" max="250"/>
+                    <span class="text-[10px] font-mono text-on-surface-variant ml-auto">mmHg</span>
+                </div>
+                <div class="mt-4 h-12 flex items-end gap-[2px]" id="bpBars">
+                    <div class="flex-1 bg-surface-tint/20 h-6 bar-anim"></div>
+                    <div class="flex-1 bg-surface-tint/20 h-8 bar-anim"></div>
+                    <div class="flex-1 bg-surface-tint h-10 bar-anim"></div>
+                    <div class="flex-1 bg-surface-tint/20 h-7 bar-anim"></div>
+                    <div class="flex-1 bg-surface-tint/20 h-5 bar-anim"></div>
+                    <div class="flex-1 bg-surface-tint h-9 bar-anim"></div>
+                </div>
+            </div>
+
+            <!-- Serology: Cholesterol + FBS -->
+            <div class="clinical-panel p-5 panel-hover">
+                <div class="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mb-4">Serology Markers</div>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-end border-b border-outline-variant pb-2">
+                        <label class="text-[10px] font-mono text-on-surface-variant" for="inp_chol">Cholesterol</label>
+                        <div class="flex items-baseline gap-1">
+                            <input id="inp_chol" name="chol" type="number" required class="med-input text-xl w-20 text-right" value="233"/>
+                            <span class="text-[9px] text-on-surface-variant font-mono">mg/dl</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <label class="text-[10px] font-mono text-on-surface-variant" for="fbs_toggle">Fasting Sugar &gt;120</label>
+                        <div class="flex items-center gap-3">
+                            <div id="fbs_toggle" class="toggle-pill" onclick="toggleFBS()"></div>
+                            <span class="text-sm font-bold font-mono" id="fbs_label">NO</span>
+                            <input type="hidden" name="fbs" id="fbs_hidden" value="0"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== CENTER: Heart Visualization ===== -->
+        <div class="col-span-1 lg:col-span-6 clinical-panel flex flex-col items-center justify-between p-6 lg:p-8 relative overflow-hidden bg-surface-container-lowest">
+            <div class="absolute inset-0 opacity-5 pointer-events-none" style="background-image: radial-gradient(#3b494b 1px, transparent 1px); background-size: 20px 20px;"></div>
+            <div class="relative w-full flex justify-between items-start z-10">
+                <div class="font-mono text-[10px] text-surface-tint uppercase bg-surface-container px-2 py-1 border border-outline-variant">Diagnostic Map: Cardio-01</div>
+                <div class="flex items-center gap-2 bg-surface-container px-2 py-1 border border-outline-variant">
+                    <div class="w-1.5 h-1.5 rounded-full bg-surface-tint animate-pulse"></div>
+                    <span class="font-mono text-[10px] text-on-surface-variant uppercase" id="centerStatus">Standing By</span>
+                </div>
+            </div>
+
+            <div class="relative py-8 lg:py-12">
+                <img alt="Anatomical Heart Visualization" class="w-48 lg:w-64 h-48 lg:h-64 object-contain heart-anchor animate-pulse-slow"
+                     src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRrZLXlbATTUyydjGtaBZfVyulIb1R5X6TPbTmZoBMSGkRSJT7i3EISlfJZDu5zUJo2DR5guAgrQfAJWXLZ42IG3qJ5Hbrdp_l5UpoeMqxwUGS6ZKXPNXzLzk1PDnrdkS2WhpxBC5SW8Zkgr5BCvOt318NiMTR4vnfXBn1q_YA6CjIno_IT62M1YnWC-fAYLmqH_OSz2rw_Y5GaaW3Hk96_HjlGKQDWkLRkNDtVLNYFckdIeigIGRkC1jRgC7O5TQemxhjlruseb6D"/>
+                <!-- Annotation pointers -->
+                <div class="absolute -top-4 -left-8 lg:-left-12 hidden lg:flex items-center gap-2">
+                    <div class="h-[1px] w-12 bg-surface-tint"></div>
+                    <div class="bg-surface-container border border-surface-tint px-2 py-1 font-mono text-[9px] uppercase text-white whitespace-nowrap">Aortic Analysis</div>
+                </div>
+                <div class="absolute bottom-12 -right-10 lg:-right-16 hidden lg:flex items-center gap-2">
+                    <div class="bg-surface-container border border-outline-variant px-2 py-1 font-mono text-[9px] uppercase text-on-surface-variant whitespace-nowrap">Ventricular Map</div>
+                    <div class="h-[1px] w-8 bg-outline-variant"></div>
+                </div>
+            </div>
+
+            <!-- Telemetry Summary (showing Max HR, ECG, Slope, Vessels) -->
+            <div class="w-full grid grid-cols-2 lg:grid-cols-4 gap-2 pt-6 border-t border-outline-variant z-10">
+                <div class="text-center p-2 border-r border-outline-variant">
+                    <label class="font-mono text-[8px] text-on-surface-variant uppercase block" for="inp_thalach">Max Heart Rate</label>
+                    <input id="inp_thalach" name="thalach" type="number" required class="med-input text-lg text-center w-full" value="150"/>
+                </div>
+                <div class="text-center p-2 border-r border-outline-variant">
+                    <label class="font-mono text-[8px] text-on-surface-variant uppercase block" for="inp_slope">ST Slope</label>
+                    <select id="inp_slope" name="slope" required class="med-select text-lg text-center w-full">
+                        <option value="0">Upsloping</option>
+                        <option value="1" selected>Flat</option>
+                        <option value="2">Downsloping</option>
+                    </select>
+                </div>
+                <div class="text-center p-2 border-r border-outline-variant">
+                    <label class="font-mono text-[8px] text-on-surface-variant uppercase block" for="inp_ca">Major Vessels</label>
+                    <input id="inp_ca" name="ca" type="number" required class="med-input text-lg text-center w-full" value="0" min="0" max="4"/>
+                </div>
+                <div class="text-center p-2">
+                    <label class="font-mono text-[8px] text-on-surface-variant uppercase block" for="inp_restecg">Resting ECG</label>
+                    <select id="inp_restecg" name="restecg" required class="med-select text-lg text-center w-full">
+                        <option value="0">Normal</option>
+                        <option value="1">ST-T Abnorm</option>
+                        <option value="2">LV Hypertrophy</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- RUN ANALYSIS Button (center) -->
+            <button type="submit" id="submitBtn" class="mt-6 w-full py-3 bg-surface-tint/10 hover:bg-surface-tint/20 text-surface-tint font-mono text-xs font-bold tracking-[0.2em] uppercase border border-surface-tint/40 hover:border-surface-tint transition-all z-10 flex items-center justify-center gap-3">
+                <span class="material-symbols-outlined text-lg" id="submitIcon">rocket_launch</span>
+                <span id="submitText">INITIATE NEURAL ANALYSIS</span>
+            </button>
+        </div>
+
+        <!-- ===== RIGHT COLUMN: Clinical Markers ===== -->
+        <div class="col-span-1 lg:col-span-3 space-y-6">
+
+            <!-- Chest Pain & Angina -->
+            <div class="clinical-panel p-5 panel-hover">
+                <div class="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mb-4 border-b border-outline-variant pb-2">Symp. Classification</div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[9px] font-mono text-on-surface-variant uppercase mb-1 block" for="inp_cp">Chest Pain Type</label>
+                        <select id="inp_cp" name="cp" required class="med-select text-base">
+                            <option value="0">Typical Angina</option>
+                            <option value="1">Atypical Angina</option>
+                            <option value="2">Non-Anginal Pain</option>
+                            <option value="3">Asymptomatic</option>
+                        </select>
+                        <div class="text-[8px] font-mono text-on-surface-variant mt-1" id="cpCategory">CATEGORY 1</div>
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-mono text-on-surface-variant uppercase mb-1 block">Exer. Induced Angina</label>
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div id="exang_toggle" class="toggle-pill" onclick="toggleExang()"></div>
+                                <span class="text-lg font-bold font-mono" id="exang_label">NO</span>
+                                <input type="hidden" name="exang" id="exang_hidden" value="0"/>
+                            </div>
+                            <span class="text-[9px] font-mono bg-surface-container px-2 py-0.5 border border-outline-variant uppercase" id="exangTag">Stable</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ST Depression -->
+            <div class="clinical-panel p-5 panel-hover">
+                <div class="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mb-3">ST Depression Metrics</div>
+                <div class="flex items-baseline gap-2 mb-3">
+                    <input id="inp_oldpeak" name="oldpeak" type="number" step="0.1" required class="med-input text-3xl w-20" value="2.3"/>
+                    <span class="text-[9px] font-mono text-on-surface-variant">OLDPEAK</span>
+                </div>
+                <div class="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+                    <div class="h-full bg-error transition-all duration-500" id="oldpeakBar" style="width: 57%"></div>
+                </div>
+            </div>
+
+            <!-- Thalassemia -->
+            <div class="clinical-panel p-5 panel-hover">
+                <div class="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mb-4">Hematology Analysis</div>
+                <div class="flex items-center gap-4">
+                    <div class="relative w-10 h-10 shrink-0">
+                        <svg class="w-full h-full -rotate-90" viewBox="0 0 40 40">
+                            <circle class="text-outline-variant" cx="20" cy="20" fill="none" r="18" stroke="currentColor" stroke-width="3"></circle>
+                            <circle class="text-surface-tint" cx="20" cy="20" fill="none" r="18" stroke="currentColor" stroke-dasharray="113" stroke-dashoffset="28" stroke-width="3" id="thalCircle"></circle>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-[9px] font-mono text-on-surface-variant uppercase block mb-1" for="inp_thal">Thalassemia Type</label>
+                        <select id="inp_thal" name="thal" required class="med-select text-sm">
+                            <option value="1">Normal Flow</option>
+                            <option value="2">Fixed Defect</option>
+                            <option value="3" selected>Reversible Defect</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </form>
+
+    <!-- ========= ANALYTICS ROW ========= -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+        <div class="clinical-panel p-6 flex flex-col justify-between panel-hover">
+            <div class="font-mono text-[10px] text-on-surface-variant uppercase mb-2">Dataset Records</div>
+            <div class="text-4xl font-bold text-surface-tint" id="statTotalRecords">--</div>
+            <div class="text-[10px] text-on-surface-variant mt-4" id="statRecordDesc">Loading dataset info...</div>
+        </div>
+        <div class="clinical-panel p-6 flex flex-col justify-between panel-hover">
+            <div class="font-mono text-[10px] text-on-surface-variant uppercase mb-2">Positive Cases</div>
+            <div class="text-4xl font-bold" id="statPositive">--</div>
+            <div class="w-full bg-surface-container h-1 mt-4">
+                <div class="bg-error h-full transition-all duration-700" id="statPositiveBar" style="width: 0%"></div>
+            </div>
+        </div>
+        <div class="clinical-panel p-6 flex flex-col justify-between panel-hover">
+            <div class="font-mono text-[10px] text-on-surface-variant uppercase mb-2">Negative Cases</div>
+            <div class="text-4xl font-bold text-surface-tint" id="statNegative">--</div>
+            <div class="w-full bg-surface-container h-1 mt-4">
+                <div class="bg-surface-tint h-full transition-all duration-700" id="statNegativeBar" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+    </div><!-- end vitalsPanel -->
+
+    <!-- ========= RISK ANALYSIS PANEL (hidden by default) ========= -->
+    <div id="statsPanel" class="hidden">
+        <div class="flex items-center gap-3 mb-6">
+            <button onclick="showVitalsPanel()" class="material-symbols-outlined text-on-surface-variant hover:text-white transition-colors">arrow_back</button>
+            <h2 class="font-headline text-xl text-white font-bold">LOW RISK vs HIGH RISK <span class="text-surface-tint">VITALS</span></h2>
+            <span class="font-mono text-[9px] text-on-surface-variant uppercase">(computed from heart.csv — not hardcoded)</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="riskComparisonGrid">
+            <!-- Will be populated dynamically -->
+        </div>
+    </div>
+
+    <!-- ========= DATASET PANEL (hidden) ========= -->
+    <div id="datasetPanel" class="hidden">
+        <div class="flex items-center gap-3 mb-6">
+            <button onclick="showVitalsPanel()" class="material-symbols-outlined text-on-surface-variant hover:text-white transition-colors">arrow_back</button>
+            <h2 class="font-headline text-xl text-white font-bold">DATASET <span class="text-surface-tint">EXPLORER</span></h2>
+        </div>
+        <div class="clinical-panel p-4 overflow-x-auto">
+            <table class="w-full text-xs font-mono" id="datasetTable">
+                <thead id="datasetHead"></thead>
+                <tbody id="datasetBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+</main>
+
+<!-- ==================== RESULT MODAL ==================== -->
+<div id="resultModal" class="fixed inset-0 bg-background/95 backdrop-blur-xl z-[100] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300" style="display:none;">
+    <div class="clinical-panel p-8 lg:p-10 max-w-3xl w-full text-center relative overflow-hidden" id="resultModalContent">
+        <div class="absolute inset-0 pointer-events-none" id="resultModalGlow"></div>
+
+        <div class="relative z-10">
+            <span class="material-symbols-outlined text-6xl mb-4" id="resultIcon">monitor_heart</span>
+
+            <div class="font-mono text-xs tracking-[0.2em] uppercase mb-4 text-on-surface-variant">Diagnostic Risk Assessment</div>
+            <h2 class="text-6xl lg:text-7xl font-bold mb-2 tracking-tight" id="resultScore">0%</h2>
+            <div class="font-mono text-xs text-on-surface-variant mb-6" id="resultConfidence"></div>
+
+            <div class="w-full h-1.5 bg-surface-container mb-8 rounded-full overflow-hidden">
+                <div id="resultBar" class="h-full transition-all duration-1000 ease-out" style="width: 0%"></div>
+            </div>
+
+            <p class="text-base text-on-surface-variant mb-8 leading-relaxed" id="resultText"></p>
+
+            <div id="recommendationsBox" class="bg-surface-container-lowest p-6 text-left mb-8 hidden border border-outline-variant">
+                <h4 class="text-[10px] font-mono uppercase tracking-widest mb-4 flex items-center gap-3 text-white">
+                    <span class="material-symbols-outlined text-surface-tint text-sm">task_alt</span>
+                    Clinical Action Plan
+                </h4>
+                <ul id="recommendationsList" class="space-y-3"></ul>
+            </div>
+
+            <button onclick="closeModal()" class="px-8 py-3 bg-surface-container hover:bg-surface-container-high text-white font-mono text-[10px] uppercase tracking-widest border border-outline-variant hover:border-surface-tint transition-all">
+                Acknowledge &amp; Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== JAVASCRIPT ==================== -->
+<script>
+// ====== TOGGLE HELPERS ======
+function toggleFBS() {
+    const pill = document.getElementById('fbs_toggle');
+    const hidden = document.getElementById('fbs_hidden');
+    const label = document.getElementById('fbs_label');
+    if (pill.classList.contains('active')) {
+        pill.classList.remove('active');
+        hidden.value = '0';
+        label.textContent = 'NO';
+    } else {
+        pill.classList.add('active');
+        hidden.value = '1';
+        label.textContent = 'YES';
+    }
+}
+
+function toggleExang() {
+    const pill = document.getElementById('exang_toggle');
+    const hidden = document.getElementById('exang_hidden');
+    const label = document.getElementById('exang_label');
+    const tag = document.getElementById('exangTag');
+    if (pill.classList.contains('active')) {
+        pill.classList.remove('active');
+        hidden.value = '0';
+        label.textContent = 'NO';
+        tag.textContent = 'Stable';
+    } else {
+        pill.classList.add('active');
+        hidden.value = '1';
+        label.textContent = 'YES';
+        tag.textContent = 'Alert';
+        tag.style.borderColor = '#ffb4ab';
+    }
+}
+
+// ====== NAVIGATION ======
+function showVitalsPanel() {
+    document.getElementById('vitalsPanel').classList.remove('hidden');
+    document.getElementById('statsPanel').classList.add('hidden');
+    document.getElementById('datasetPanel').classList.add('hidden');
+    setActiveNav('navVitals');
+}
+function showStatsPanel() {
+    document.getElementById('vitalsPanel').classList.add('hidden');
+    document.getElementById('statsPanel').classList.remove('hidden');
+    document.getElementById('datasetPanel').classList.add('hidden');
+    setActiveNav('navStats');
+    loadRiskComparison();
+}
+function showDatasetPanel() {
+    document.getElementById('vitalsPanel').classList.add('hidden');
+    document.getElementById('statsPanel').classList.add('hidden');
+    document.getElementById('datasetPanel').classList.remove('hidden');
+    setActiveNav('navDataset');
+    loadDataset();
+}
+function setActiveNav(id) {
+    document.querySelectorAll('aside nav a').forEach(a => {
+        a.classList.remove('sidebar-active');
+        a.classList.add('text-on-surface-variant');
+    });
+    const el = document.getElementById(id);
+    if (el) {
+        el.classList.add('sidebar-active');
+        el.classList.remove('text-on-surface-variant');
+    }
+}
+
+// ====== OLDPEAK BAR UPDATE ======
+document.getElementById('inp_oldpeak').addEventListener('input', function() {
+    const val = parseFloat(this.value) || 0;
+    const pct = Math.min(100, (val / 4) * 100);
+    document.getElementById('oldpeakBar').style.width = pct + '%';
+});
+
+// ====== CHEST PAIN CATEGORY UPDATE ======
+document.getElementById('inp_cp').addEventListener('change', function() {
+    const labels = ['CATEGORY 1 — TYPICAL', 'CATEGORY 2 — ATYPICAL', 'CATEGORY 3 — NON-ANGINAL', 'CATEGORY 4 — ASYMPTOMATIC'];
+    document.getElementById('cpCategory').textContent = labels[this.value] || '';
+});
+
+// ====== THAL CIRCLE UPDATE ======
+document.getElementById('inp_thal').addEventListener('change', function() {
+    const offsets = { '1': 85, '2': 56, '3': 28 };
+    document.getElementById('thalCircle').setAttribute('stroke-dashoffset', offsets[this.value] || 56);
+});
+
+// ====== BP BAR ANIMATION ======
+document.getElementById('inp_trestbps').addEventListener('input', function() {
+    const val = parseInt(this.value) || 120;
+    const bars = document.querySelectorAll('#bpBars > div');
+    const bp_norm = Math.min(1, Math.max(0, (val - 80) / 120));
+    bars.forEach((bar, i) => {
+        const h = 4 + bp_norm * 8 + Math.sin(i * 1.5) * 2;
+        bar.style.height = h + 'px';
+    });
+    const status = document.getElementById('bpStatus');
+    if (val > 140) { status.textContent = 'ELEVATED'; status.style.color = '#ffb4ab'; }
+    else if (val > 120) { status.textContent = 'PRE-HIGH'; status.style.color = '#ffd700'; }
+    else { status.textContent = 'NORMAL'; status.style.color = '#00dbe9'; }
+});
+
+// ====== LOAD STATS ON PAGE LOAD ======
+function loadStats() {
+    $.getJSON('/api/stats', function(data) {
+        if (data.success) {
+            document.getElementById('headerRecordCount').textContent = data.total_records + ' REC';
+            document.getElementById('headerRiskRate').textContent = data.risk_rate + '%';
+            document.getElementById('statTotalRecords').textContent = data.total_records;
+            document.getElementById('statRecordDesc').textContent = data.columns.length + ' features across ' + data.total_records + ' patients';
+            document.getElementById('statPositive').textContent = data.positive_cases;
+            document.getElementById('statNegative').textContent = data.negative_cases;
+            setTimeout(() => {
+                document.getElementById('statPositiveBar').style.width = data.risk_rate + '%';
+                document.getElementById('statNegativeBar').style.width = (100 - data.risk_rate) + '%';
+            }, 300);
+
+            // Engine status (sidebar only)
+            if (data.model_available) {
+                document.getElementById('engineStatus').textContent = 'MATLAB LINKED';
+                document.getElementById('modeIndicator').textContent = 'MATLAB MODE';
+            } else {
+                document.getElementById('engineStatus').textContent = 'SIMULATION MODE';
+                document.getElementById('modeIndicator').textContent = 'SIMULATION MODE';
+                document.getElementById('modeIndicator').style.color = '#ffd700';
+            }
+
+            document.getElementById('mainStatusText').textContent = 'Synchronized';
+            document.getElementById('mainStatusDot').style.backgroundColor = '#00dbe9';
+        }
+    }).fail(function() {
+        document.getElementById('mainStatusText').textContent = 'OFFLINE';
+        document.getElementById('mainStatusDot').style.backgroundColor = '#ffb4ab';
+    });
+}
+
+// ====== LOAD RISK COMPARISON (Low vs High) ======
+function loadRiskComparison() {
+    $.getJSON('/api/stats', function(data) {
+        if (!data.success) return;
+        const grid = document.getElementById('riskComparisonGrid');
+        grid.innerHTML = '';
+
+        const bioLabels = {
+            age: 'Age (Years)', sex: 'Sex (0=F, 1=M)', cp: 'Chest Pain Type',
+            trestbps: 'Resting BP (mmHg)', chol: 'Cholesterol (mg/dl)', fbs: 'Fasting Blood Sugar',
+            restecg: 'Resting ECG', thalach: 'Max Heart Rate', exang: 'Exercise Angina',
+            oldpeak: 'ST Depression', slope: 'ST Slope', ca: 'Major Vessels', thal: 'Thalassemia'
+        };
+
+        // Low Risk Card
+        let lowHtml = '<div class="clinical-panel p-6 border-l-4 border-l-surface-tint"><div class="flex items-center gap-3 mb-6 border-b border-outline-variant pb-4"><span class="material-symbols-outlined text-surface-tint">verified</span><div><div class="font-mono text-sm font-bold text-surface-tint uppercase">Low Risk Group</div><div class="font-mono text-[9px] text-on-surface-variant">' + data.low_risk.count + ' patients (target = 0)</div></div></div><div class="space-y-3">';
+        const lowBio = data.low_risk.biomarkers || {};
+        for (const [key, label] of Object.entries(bioLabels)) {
+            lowHtml += '<div class="flex justify-between items-center py-1 border-b border-outline-variant/50"><span class="font-mono text-[10px] text-on-surface-variant uppercase">' + label + '</span><span class="font-mono text-sm font-bold">' + (lowBio[key] !== undefined ? lowBio[key] : '--') + '</span></div>';
+        }
+        lowHtml += '</div></div>';
+
+        // High Risk Card
+        let highHtml = '<div class="clinical-panel p-6 border-l-4 border-l-error"><div class="flex items-center gap-3 mb-6 border-b border-outline-variant pb-4"><span class="material-symbols-outlined text-error">warning</span><div><div class="font-mono text-sm font-bold text-error uppercase">High Risk Group</div><div class="font-mono text-[9px] text-on-surface-variant">' + data.high_risk.count + ' patients (target = 1)</div></div></div><div class="space-y-3">';
+        const highBio = data.high_risk.biomarkers || {};
+        for (const [key, label] of Object.entries(bioLabels)) {
+            highHtml += '<div class="flex justify-between items-center py-1 border-b border-outline-variant/50"><span class="font-mono text-[10px] text-on-surface-variant uppercase">' + label + '</span><span class="font-mono text-sm font-bold text-error">' + (highBio[key] !== undefined ? highBio[key] : '--') + '</span></div>';
+        }
+        highHtml += '</div></div>';
+
+        grid.innerHTML = lowHtml + highHtml;
+    });
+}
+
+// ====== LOAD DATASET ======
+function loadDataset() {
+    $.getJSON('/api/dataset', function(data) {
+        if (!data.success) return;
+        const head = document.getElementById('datasetHead');
+        const body = document.getElementById('datasetBody');
+        head.innerHTML = '<tr>' + data.columns.map(c => '<th class="px-3 py-2 text-left text-[9px] uppercase text-on-surface-variant border-b border-outline-variant bg-surface-container-high sticky top-0">' + c + '</th>').join('') + '</tr>';
+        body.innerHTML = data.data.slice(0, 50).map((row, i) => {
+            const target = row.target !== undefined ? row.target : row[data.columns[data.columns.length - 1]];
+            const rowClass = target >= 1 ? 'bg-error/5' : '';
+            return '<tr class="hover:bg-surface-container transition-colors ' + rowClass + '">' + data.columns.map(c => '<td class="px-3 py-1.5 border-b border-outline-variant/30">' + (row[c] !== undefined ? row[c] : '') + '</td>').join('') + '</tr>';
+        }).join('');
+    });
+}
+
+// ====== MODAL ======
+function closeModal() {
+    const modal = document.getElementById('resultModal');
+    modal.style.opacity = '0';
+    setTimeout(() => { modal.style.display = 'none'; }, 300);
+}
+function openModal() {
+    const modal = document.getElementById('resultModal');
+    modal.style.display = 'flex';
+    modal.classList.remove('hidden');
+    setTimeout(() => { modal.style.opacity = '1'; }, 50);
+}
+
+// ====== RUN ANALYSIS (alias for button in sidebar) ======
+function runAnalysis() {
+    document.getElementById('diagnosticForm').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+}
+
+// ====== FORM SUBMISSION ======
+$('#diagnosticForm').on('submit', function(e) {
+    e.preventDefault();
+
+    const btn = document.getElementById('submitBtn');
+    const icon = document.getElementById('submitIcon');
+    const text = document.getElementById('submitText');
+    icon.textContent = 'sync';
+    icon.classList.add('animate-spin');
+    text.textContent = 'PROCESSING...';
+    btn.disabled = true;
+
+    document.getElementById('centerStatus').textContent = 'ANALYZING...';
+    document.getElementById('centerStatus').style.color = '#ffd700';
+
+    $.post('/predict', $(this).serialize(), function(data) {
+        icon.classList.remove('animate-spin');
+        icon.textContent = 'rocket_launch';
+        text.textContent = 'INITIATE NEURAL ANALYSIS';
+        btn.disabled = false;
+
+        if (data.success) {
+            openModal();
+
+            const risk = data.risk;
+            const confidence = data.confidence;
+            document.getElementById('resultScore').textContent = risk + '%';
+            document.getElementById('resultConfidence').textContent = 'Confidence: ' + confidence + '%';
+
+            setTimeout(() => {
+                document.getElementById('resultBar').style.width = risk + '%';
+            }, 400);
+
+            const recs = [];
+            const trestbps = parseFloat($('#inp_trestbps').val());
+            const chol = parseFloat($('#inp_chol').val());
+            const fbs = parseInt($('#fbs_hidden').val());
+            const exang = parseInt($('#exang_hidden').val());
+
+            if (risk > 50) {
+                // HIGH RISK
+                document.getElementById('resultScore').style.color = '#ffb4ab';
+                document.getElementById('resultBar').style.backgroundColor = '#ffb4ab';
+                document.getElementById('resultBar').style.boxShadow = '0 0 15px rgba(255,180,171,0.6)';
+                document.getElementById('resultIcon').textContent = 'warning';
+                document.getElementById('resultIcon').style.color = '#ffb4ab';
+                document.getElementById('resultModalContent').style.borderColor = 'rgba(255,180,171,0.3)';
+                document.getElementById('resultModalContent').classList.add('result-glow-danger');
+                document.getElementById('resultModalContent').classList.remove('result-glow');
+                document.getElementById('resultText').textContent = 'HIGH RISK ALERT: Significant cardiovascular anomalies detected. Immediate clinical review is strongly recommended.';
+                document.getElementById('centerStatus').textContent = 'HIGH RISK DETECTED';
+                document.getElementById('centerStatus').style.color = '#ffb4ab';
+
+                recs.push("Schedule an urgent consultation with a cardiologist.");
+                if (trestbps > 130) recs.push("Monitor blood pressure daily — antihypertensive strategies recommended.");
+                if (chol > 200) recs.push("Initiate low-cholesterol diet and review statin therapy.");
+                if (fbs === 1) recs.push("Evaluate fasting glucose for diabetes management.");
+                if (exang === 1) recs.push("Avoid strenuous exertion until cleared by physician.");
+            } else {
+                // LOW RISK
+                document.getElementById('resultScore').style.color = '#00dbe9';
+                document.getElementById('resultBar').style.backgroundColor = '#00dbe9';
+                document.getElementById('resultBar').style.boxShadow = '0 0 15px rgba(0,219,233,0.6)';
+                document.getElementById('resultIcon').textContent = 'verified';
+                document.getElementById('resultIcon').style.color = '#00dbe9';
+                document.getElementById('resultModalContent').style.borderColor = 'rgba(0,219,233,0.3)';
+                document.getElementById('resultModalContent').classList.add('result-glow');
+                document.getElementById('resultModalContent').classList.remove('result-glow-danger');
+                document.getElementById('resultText').textContent = 'LOW RISK: Cardiovascular telemetry within optimal parameters. No significant anomalies detected.';
+                document.getElementById('centerStatus').textContent = 'OPTIMAL READINGS';
+                document.getElementById('centerStatus').style.color = '#00dbe9';
+
+                recs.push("Maintain current cardiovascular health routines.");
+                recs.push("Continue regular moderate exercise (150+ min/week).");
+                recs.push("Balanced diet rich in fiber, vegetables, and lean proteins.");
+                if (trestbps > 120) recs.push("Periodically monitor blood pressure — slightly elevated.");
+                if (chol > 200) recs.push("Incorporate soluble fiber for borderline cholesterol management.");
+            }
+
+            const list = document.getElementById('recommendationsList');
+            list.innerHTML = '';
+            recs.forEach(r => {
+                const color = risk > 50 ? 'text-error' : 'text-surface-tint';
+                list.innerHTML += '<li class="flex items-start gap-3"><span class="material-symbols-outlined ' + color + ' text-sm shrink-0 mt-0.5">chevron_right</span><span class="text-on-surface-variant text-sm leading-relaxed">' + r + '</span></li>';
+            });
+            document.getElementById('recommendationsBox').classList.remove('hidden');
+
+        } else {
+            alert('DIAGNOSTIC ERROR: ' + (data.error || 'Unknown error'));
+            document.getElementById('centerStatus').textContent = 'ERROR';
+            document.getElementById('centerStatus').style.color = '#ffb4ab';
+        }
+    }).fail(function() {
+        icon.classList.remove('animate-spin');
+        icon.textContent = 'rocket_launch';
+        text.textContent = 'INITIATE NEURAL ANALYSIS';
+        btn.disabled = false;
+        alert('CONNECTION LOST: Unable to reach clinical engine.');
+    });
+});
+
+// ====== MICRO-ANIMATIONS ======
+setInterval(() => {
+    const dots = document.querySelectorAll('.status-dot');
+    dots.forEach(dot => {
+        dot.style.opacity = dot.style.opacity === '1' ? '0.6' : '1';
+    });
+}, 1500);
+
+// ====== INIT ======
+$(document).ready(function() {
+    loadStats();
+});
+</script>
+</body>
+</html>
