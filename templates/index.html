@@ -4,7 +4,7 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>CardioScan AI | MED-OS Clinical Dashboard</title>
-    <meta name="description" content="CardioScan AI - Advanced cardiovascular risk assessment using 13 clinical biomarkers and neural network inference."/>
+    <meta name="description" content="CardioScan AI - Advanced cardiovascular risk assessment using MATLAB ensemble architecture with 13 clinical biomarkers."/>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=JetBrains+Mono:wght@100..800&display=swap" rel="stylesheet"/>
@@ -180,6 +180,60 @@
             border-color: #00dbe9;
             transition: border-color 0.3s ease;
         }
+        .panel-fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .dropdown-panel {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: #1c1b1d;
+            border: 1px solid #3b494b;
+            min-width: 280px;
+            z-index: 100;
+            display: none;
+            animation: fadeIn 0.2s ease-out;
+        }
+        .dropdown-panel.open { display: block; }
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            color: #b9cacb;
+        }
+        .nav-link:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .nav-link.sidebar-active {
+            background: rgba(0, 219, 233, 0.1);
+            color: #00dbe9;
+            border-right: 2px solid #00dbe9;
+        }
+        .vote-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .vote-high { background: #ffb4ab; }
+        .vote-low { background: #00dbe9; }
+        @media print {
+            body { background: white !important; color: black !important; }
+            .sidebar-desktop, header, button { display: none !important; }
+            .main-content { margin: 0 !important; padding: 0 !important; }
+            .clinical-panel { border: 1px solid #ccc !important; background: white !important; color: black !important; page-break-inside: avoid; }
+            * { text-shadow: none !important; box-shadow: none !important; }
+            input, select { color: black !important; border-bottom: 1px solid #ccc !important; }
+            .text-white, .text-on-surface, .text-on-surface-variant { color: black !important; }
+            .text-surface-tint, .text-error { color: #333 !important; font-weight: bold; }
+            #resultModal { position: relative !important; display: block !important; opacity: 1 !important; background: white !important; }
+            #resultModalContent { box-shadow: none !important; border: 2px solid #000 !important; }
+            #xaiBox { color: black !important; border: 1px solid #ccc !important; background: #f9f9f9 !important; }
+        }
     </style>
 </head>
 <body class="bg-background text-on-surface">
@@ -194,24 +248,103 @@
     <div class="flex items-center gap-4 lg:gap-8">
         <div class="hidden lg:flex relative items-center bg-surface-container px-4 py-1.5 rounded border border-outline-variant w-72 focus-within:border-surface-tint transition-colors">
             <span class="material-symbols-outlined text-on-surface-variant text-lg mr-2">search</span>
-            <input class="bg-transparent border-none focus:ring-0 text-xs font-mono w-full text-white placeholder:opacity-30" placeholder="SEARCH CLINICAL DATABASE..." type="text"/>
+            <input id="searchInput" class="bg-transparent border-none focus:ring-0 text-xs font-mono w-full text-white placeholder:opacity-30" placeholder="SEARCH CLINICAL DATABASE..." type="text" onkeyup="handleSearch(this.value)"/>
         </div>
-        <div class="flex gap-3 lg:gap-5">
-            <button class="material-symbols-outlined text-on-surface-variant hover:text-surface-tint transition-colors text-xl" title="Alerts">warning</button>
-            <button class="material-symbols-outlined text-on-surface-variant hover:text-surface-tint transition-colors text-xl" title="Notifications">notifications</button>
-            <button class="material-symbols-outlined text-on-surface-variant hover:text-surface-tint transition-colors text-xl" title="Settings">settings</button>
+        <div class="flex gap-3 lg:gap-5 relative">
+            <button class="material-symbols-outlined text-on-surface-variant hover:text-surface-tint transition-colors text-xl" title="Alerts" onclick="toggleDropdown('alertsDropdown')">warning</button>
+            <button class="material-symbols-outlined text-on-surface-variant hover:text-surface-tint transition-colors text-xl" title="Notifications" onclick="toggleDropdown('notifDropdown')">notifications</button>
+            <button class="material-symbols-outlined text-on-surface-variant hover:text-surface-tint transition-colors text-xl" title="Settings" onclick="toggleDropdown('settingsDropdown')">settings</button>
+            
+            <!-- Alerts Dropdown -->
+            <div id="alertsDropdown" class="dropdown-panel" style="right: 80px;">
+                <div class="p-4 border-b border-outline-variant">
+                    <div class="font-mono text-[10px] text-surface-tint uppercase tracking-widest">System Alerts</div>
+                </div>
+                <div class="p-4 space-y-3" id="alertsList">
+                    <div class="flex items-start gap-3 text-xs">
+                        <span class="material-symbols-outlined text-surface-tint text-sm mt-0.5">check_circle</span>
+                        <span class="text-on-surface-variant">All systems operational</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notifications Dropdown -->
+            <div id="notifDropdown" class="dropdown-panel" style="right: 40px;">
+                <div class="p-4 border-b border-outline-variant">
+                    <div class="font-mono text-[10px] text-surface-tint uppercase tracking-widest">Notifications</div>
+                </div>
+                <div class="p-4 space-y-3" id="notifList">
+                    <div class="flex items-start gap-3 text-xs">
+                        <span class="material-symbols-outlined text-surface-tint text-sm mt-0.5">info</span>
+                        <span class="text-on-surface-variant">No new notifications</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Dropdown -->
+            <div id="settingsDropdown" class="dropdown-panel" style="right: 0px;">
+                <div class="p-4 border-b border-outline-variant">
+                    <div class="font-mono text-[10px] text-surface-tint uppercase tracking-widest">Settings</div>
+                </div>
+                <div class="p-4 space-y-4">
+                    <div>
+                        <div class="font-mono text-[9px] text-on-surface-variant uppercase mb-2">Engine Status</div>
+                        <div class="font-mono text-xs" id="settingsEngineStatus">Checking...</div>
+                    </div>
+                    <div>
+                        <div class="font-mono text-[9px] text-on-surface-variant uppercase mb-2">Model Accuracy</div>
+                        <div class="font-mono text-xs text-surface-tint" id="settingsModelAcc">--</div>
+                    </div>
+                    <div>
+                        <div class="font-mono text-[9px] text-on-surface-variant uppercase mb-2">Dataset Records</div>
+                        <div class="font-mono text-xs" id="settingsRecords">--</div>
+                    </div>
+                    <div>
+                        <div class="font-mono text-[9px] text-on-surface-variant uppercase mb-2">Last Trained</div>
+                        <div class="font-mono text-xs text-on-surface-variant" id="settingsLastTrained">--</div>
+                    </div>
+                    <button onclick="manualRetrain()" class="w-full py-2 bg-surface-tint/10 text-surface-tint font-mono text-[9px] tracking-widest uppercase border border-surface-tint/30 hover:bg-surface-tint/20 transition-colors" id="retrainBtn">
+                        Retrain Model
+                    </button>
+                </div>
+            </div>
         </div>
         <div class="hidden md:flex items-center gap-3 border-l border-outline-variant pl-6">
-            <div class="text-right">
-                <div class="font-mono text-[9px] text-on-surface-variant">CLINICIAN</div>
-                <div class="font-body text-xs font-medium uppercase">Dr. User</div>
+            <div class="flex items-center gap-2 bg-surface-container border border-surface-tint/30 px-2 py-1 rounded text-surface-tint mr-4" title="Data Masking Active. Stateless execution.">
+                <span class="material-symbols-outlined text-sm">lock</span>
+                <span class="font-mono text-[9px] uppercase font-bold tracking-wider">HIPAA COMPLIANT</span>
             </div>
-            <div class="w-8 h-8 rounded bg-surface-tint/20 border border-outline-variant flex items-center justify-center">
+            <div class="text-right cursor-pointer" onclick="editProfile()" title="Click to edit profile">
+                <div class="font-mono text-[9px] text-on-surface-variant">CLINICIAN</div>
+                <div class="font-body text-xs font-medium uppercase" id="clinicianName">Dr. User</div>
+            </div>
+            <div class="w-8 h-8 rounded bg-surface-tint/20 border border-outline-variant flex items-center justify-center cursor-pointer" onclick="editProfile()">
                 <span class="material-symbols-outlined text-surface-tint text-sm">person</span>
             </div>
         </div>
     </div>
 </header>
+
+<!-- ==================== PROFILE EDIT MODAL ==================== -->
+<div id="profileModal" class="fixed inset-0 bg-background/90 backdrop-blur-sm z-[110] hidden items-center justify-center p-4" style="display:none;">
+    <div class="clinical-panel p-6 max-w-sm w-full">
+        <div class="font-mono text-[10px] text-surface-tint uppercase tracking-widest mb-4">Edit Clinician Profile</div>
+        <div class="space-y-4">
+            <div>
+                <label class="font-mono text-[9px] text-on-surface-variant uppercase block mb-1">Full Name</label>
+                <input id="profileNameInput" class="med-input text-lg" type="text" value="Dr. User"/>
+            </div>
+            <div>
+                <label class="font-mono text-[9px] text-on-surface-variant uppercase block mb-1">Role / Specialty</label>
+                <input id="profileRoleInput" class="med-input text-sm" type="text" value="Cardiologist"/>
+            </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+            <button onclick="saveProfile()" class="flex-1 py-2 bg-surface-tint/10 text-surface-tint font-mono text-[10px] uppercase tracking-widest border border-surface-tint/40 hover:bg-surface-tint/20 transition-colors">Save</button>
+            <button onclick="closeProfileModal()" class="flex-1 py-2 bg-surface-container text-on-surface-variant font-mono text-[10px] uppercase tracking-widest border border-outline-variant hover:border-surface-tint transition-colors">Cancel</button>
+        </div>
+    </div>
+</div>
 
 <!-- ==================== SIDE NAV ==================== -->
 <aside class="sidebar-desktop fixed left-0 top-16 h-[calc(100vh-4rem)] w-60 bg-surface border-r border-outline-variant flex flex-col z-40">
@@ -225,15 +358,15 @@
         </div>
     </div>
     <nav class="flex-1 py-4">
-        <a class="sidebar-active flex items-center px-6 py-3 gap-3" href="#" id="navVitals">
+        <a class="nav-link sidebar-active" href="javascript:void(0)" id="navVitals" onclick="showVitalsPanel()">
             <span class="material-symbols-outlined text-lg">monitor_heart</span>
             <span class="font-mono text-xs uppercase tracking-wide">Vitals Input</span>
         </a>
-        <a class="flex items-center px-6 py-3 gap-3 text-on-surface-variant hover:bg-surface-container transition-colors" href="#" id="navStats" onclick="showStatsPanel(); return false;">
+        <a class="nav-link" href="javascript:void(0)" id="navStats" onclick="showStatsPanel()">
             <span class="material-symbols-outlined text-lg">analytics</span>
             <span class="font-mono text-xs uppercase tracking-wide">Risk Analysis</span>
         </a>
-        <a class="flex items-center px-6 py-3 gap-3 text-on-surface-variant hover:bg-surface-container transition-colors" href="#" id="navDataset" onclick="showDatasetPanel(); return false;">
+        <a class="nav-link" href="javascript:void(0)" id="navDataset" onclick="showDatasetPanel()">
             <span class="material-symbols-outlined text-lg">database</span>
             <span class="font-mono text-xs uppercase tracking-wide">Dataset</span>
         </a>
@@ -242,10 +375,18 @@
         <button onclick="runAnalysis()" class="w-full py-3 bg-surface-tint/10 text-surface-tint font-mono text-[10px] font-bold tracking-widest hover:bg-surface-tint/20 transition-colors uppercase border border-surface-tint/30">
             Run AI Analysis
         </button>
-        <div class="space-y-1">
+        <div class="space-y-2">
             <div class="flex items-center gap-2 text-on-surface-variant py-1">
                 <span class="material-symbols-outlined text-sm">terminal</span>
                 <span class="font-mono text-[9px] uppercase" id="modeIndicator">Loading...</span>
+            </div>
+            <div class="flex items-center gap-2 text-on-surface-variant py-1" id="accuracyRow" style="display:none;">
+                <span class="material-symbols-outlined text-sm">speed</span>
+                <span class="font-mono text-[9px] uppercase text-surface-tint" id="sidebarAccuracy">--</span>
+            </div>
+            <div class="flex items-center gap-2 text-on-surface-variant py-1" id="recordsRow">
+                <span class="material-symbols-outlined text-sm">storage</span>
+                <span class="font-mono text-[9px] uppercase" id="sidebarRecords">--</span>
             </div>
         </div>
     </div>
@@ -273,11 +414,15 @@
                 <div class="text-[9px] font-mono text-on-surface-variant uppercase">Risk Rate</div>
                 <div class="font-mono text-sm" id="headerRiskRate">--</div>
             </div>
+            <div class="clinical-panel px-4 py-2 flex flex-col gap-1" id="headerAccPanel" style="display:none;">
+                <div class="text-[9px] font-mono text-on-surface-variant uppercase">Model Acc.</div>
+                <div class="font-mono text-sm text-surface-tint" id="headerModelAcc">--</div>
+            </div>
         </div>
     </div>
 
     <!-- ========= VITALS INPUT PANEL (default view) ========= -->
-    <div id="vitalsPanel">
+    <div id="vitalsPanel" class="panel-fade-in">
     <form id="diagnosticForm">
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
@@ -290,7 +435,7 @@
                 <div class="grid grid-cols-2 gap-6">
                     <div>
                         <label class="font-mono text-[9px] text-on-surface-variant uppercase block mb-1" for="inp_age">Age (Years)</label>
-                        <input id="inp_age" name="age" type="number" required class="med-input text-2xl" value="54" min="1" max="120"/>
+                        <input id="inp_age" name="age" type="number" required class="med-input text-2xl" value="45" min="1" max="120"/>
                     </div>
                     <div>
                         <label class="font-mono text-[9px] text-on-surface-variant uppercase block mb-1" for="inp_sex">Biological Sex</label>
@@ -309,7 +454,7 @@
                     <span class="text-[9px] font-mono text-surface-tint" id="bpStatus">INPUT</span>
                 </div>
                 <div class="flex items-baseline gap-2">
-                    <input id="inp_trestbps" name="trestbps" type="number" required class="med-input text-4xl w-20" value="131" min="60" max="250"/>
+                    <input id="inp_trestbps" name="trestbps" type="number" required class="med-input text-4xl w-20" value="120" min="60" max="250"/>
                     <span class="text-[10px] font-mono text-on-surface-variant ml-auto">mmHg</span>
                 </div>
                 <div class="mt-4 h-12 flex items-end gap-[2px]" id="bpBars">
@@ -329,7 +474,7 @@
                     <div class="flex justify-between items-end border-b border-outline-variant pb-2">
                         <label class="text-[10px] font-mono text-on-surface-variant" for="inp_chol">Cholesterol</label>
                         <div class="flex items-baseline gap-1">
-                            <input id="inp_chol" name="chol" type="number" required class="med-input text-xl w-20 text-right" value="233"/>
+                            <input id="inp_chol" name="chol" type="number" required class="med-input text-xl w-20 text-right" value="200"/>
                             <span class="text-[9px] text-on-surface-variant font-mono">mg/dl</span>
                         </div>
                     </div>
@@ -356,21 +501,26 @@
                 </div>
             </div>
 
-            <div class="relative py-8 lg:py-12">
-                <img alt="Anatomical Heart Visualization" class="w-48 lg:w-64 h-48 lg:h-64 object-contain heart-anchor animate-pulse-slow"
-                     src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRrZLXlbATTUyydjGtaBZfVyulIb1R5X6TPbTmZoBMSGkRSJT7i3EISlfJZDu5zUJo2DR5guAgrQfAJWXLZ42IG3qJ5Hbrdp_l5UpoeMqxwUGS6ZKXPNXzLzk1PDnrdkS2WhpxBC5SW8Zkgr5BCvOt318NiMTR4vnfXBn1q_YA6CjIno_IT62M1YnWC-fAYLmqH_OSz2rw_Y5GaaW3Hk96_HjlGKQDWkLRkNDtVLNYFckdIeigIGRkC1jRgC7O5TQemxhjlruseb6D"/>
-                <!-- Annotation pointers -->
-                <div class="absolute -top-4 -left-8 lg:-left-12 hidden lg:flex items-center gap-2">
-                    <div class="h-[1px] w-12 bg-surface-tint"></div>
-                    <div class="bg-surface-container border border-surface-tint px-2 py-1 font-mono text-[9px] uppercase text-white whitespace-nowrap">Aortic Analysis</div>
+            <div class="relative py-8 lg:py-12 flex justify-center items-center">
+                <div class="w-48 h-48 lg:w-64 lg:h-64 rounded-full border border-surface-tint/20 flex items-center justify-center relative">
+                    <div class="w-32 h-32 lg:w-48 lg:h-48 rounded-full border border-surface-tint/40 flex items-center justify-center relative">
+                        <div class="w-16 h-16 lg:w-24 lg:h-24 rounded-full bg-surface-tint/10 border border-surface-tint flex items-center justify-center shadow-[0_0_20px_rgba(0,219,233,0.2)]">
+                            <span class="material-symbols-outlined text-surface-tint text-4xl">monitor_heart</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="absolute bottom-12 -right-10 lg:-right-16 hidden lg:flex items-center gap-2">
-                    <div class="bg-surface-container border border-outline-variant px-2 py-1 font-mono text-[9px] uppercase text-on-surface-variant whitespace-nowrap">Ventricular Map</div>
+                <!-- Annotation pointers -->
+                <div class="absolute top-12 -left-8 lg:-left-12 hidden lg:flex items-center gap-2">
+                    <div class="h-[1px] w-12 bg-surface-tint"></div>
+                    <div class="bg-surface-container border border-surface-tint px-2 py-1 font-mono text-[9px] uppercase text-white whitespace-nowrap">Core Analysis</div>
+                </div>
+                <div class="absolute bottom-16 -right-10 lg:-right-16 hidden lg:flex items-center gap-2">
+                    <div class="bg-surface-container border border-outline-variant px-2 py-1 font-mono text-[9px] uppercase text-on-surface-variant whitespace-nowrap">Telemetry Map</div>
                     <div class="h-[1px] w-8 bg-outline-variant"></div>
                 </div>
             </div>
 
-            <!-- Telemetry Summary (showing Max HR, ECG, Slope, Vessels) -->
+            <!-- Telemetry Summary -->
             <div class="w-full grid grid-cols-2 lg:grid-cols-4 gap-2 pt-6 border-t border-outline-variant z-10">
                 <div class="text-center p-2 border-r border-outline-variant">
                     <label class="font-mono text-[8px] text-on-surface-variant uppercase block" for="inp_thalach">Max Heart Rate</label>
@@ -398,7 +548,7 @@
                 </div>
             </div>
 
-            <!-- RUN ANALYSIS Button (center) -->
+            <!-- RUN ANALYSIS Button -->
             <button type="submit" id="submitBtn" class="mt-6 w-full py-3 bg-surface-tint/10 hover:bg-surface-tint/20 text-surface-tint font-mono text-xs font-bold tracking-[0.2em] uppercase border border-surface-tint/40 hover:border-surface-tint transition-all z-10 flex items-center justify-center gap-3">
                 <span class="material-symbols-outlined text-lg" id="submitIcon">rocket_launch</span>
                 <span id="submitText">INITIATE NEURAL ANALYSIS</span>
@@ -417,7 +567,7 @@
                         <select id="inp_cp" name="cp" required class="med-select text-base">
                             <option value="0">Typical Angina</option>
                             <option value="1">Atypical Angina</option>
-                            <option value="2">Non-Anginal Pain</option>
+                            <option value="2" selected>Non-anginal Pain</option>
                             <option value="3">Asymptomatic</option>
                         </select>
                         <div class="text-[8px] font-mono text-on-surface-variant mt-1" id="cpCategory">CATEGORY 1</div>
@@ -440,11 +590,11 @@
             <div class="clinical-panel p-5 panel-hover">
                 <div class="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mb-3">ST Depression Metrics</div>
                 <div class="flex items-baseline gap-2 mb-3">
-                    <input id="inp_oldpeak" name="oldpeak" type="number" step="0.1" required class="med-input text-3xl w-20" value="2.3"/>
+                    <input id="inp_oldpeak" name="oldpeak" type="number" step="0.1" required class="med-input text-3xl w-20" value="0.0"/>
                     <span class="text-[9px] font-mono text-on-surface-variant">OLDPEAK</span>
                 </div>
                 <div class="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
-                    <div class="h-full bg-error transition-all duration-500" id="oldpeakBar" style="width: 57%"></div>
+                    <div class="h-full bg-error transition-all duration-500" id="oldpeakBar" style="width: 0%"></div>
                 </div>
             </div>
 
@@ -462,34 +612,58 @@
                         <label class="text-[9px] font-mono text-on-surface-variant uppercase block mb-1" for="inp_thal">Thalassemia Type</label>
                         <select id="inp_thal" name="thal" required class="med-select text-sm">
                             <option value="1">Normal Flow</option>
-                            <option value="2">Fixed Defect</option>
-                            <option value="3" selected>Reversible Defect</option>
+                            <option value="2" selected>Fixed Defect</option>
+                            <option value="3">Reversible Defect</option>
                         </select>
                     </div>
                 </div>
             </div>
+
+            <!-- Engine Architecture Overview -->
+            <div class="clinical-panel p-5 panel-hover">
+                <div class="flex items-center gap-2 mb-4 border-b border-outline-variant pb-2">
+                    <span class="material-symbols-outlined text-surface-tint text-sm">account_tree</span>
+                    <div class="font-mono text-[10px] text-surface-tint uppercase tracking-widest">Ensemble Architecture</div>
+                </div>
+                <div class="space-y-3 font-mono text-[9px] text-on-surface-variant leading-relaxed">
+                    <div>
+                        <span class="text-white font-bold block mb-0.5">Random Forest Ensemble:</span> Leverages Bagging logic to prevent model overfitting.
+                    </div>
+                    <div>
+                        <span class="text-white font-bold block mb-0.5">XGBoost (Gradient Boosting):</span> Optimizes the loss function through sequential decision-tree refinement.
+                    </div>
+                    <div>
+                        <span class="text-white font-bold block mb-0.5">Kernel-based SVM:</span> Maps physiological data into a high-dimensional feature space using the RBF kernel.
+                    </div>
+                    <div class="pt-2 mt-2 border-t border-outline-variant">
+                        <span class="text-surface-tint font-bold uppercase block mb-1">Decision Logic:</span> 
+                        Majority Voting (Stacking). The final risk assessment is a consensus derived from all three architectures to ensure clinical reliability.
+                    </div>
+                </div>
+            </div>
         </div>
+
     </div>
     </form>
 
     <!-- ========= ANALYTICS ROW ========= -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-        <div class="clinical-panel p-6 flex flex-col justify-between panel-hover">
+        <div class="clinical-panel p-5 panel-hover">
             <div class="font-mono text-[10px] text-on-surface-variant uppercase mb-2">Dataset Records</div>
-            <div class="text-4xl font-bold text-surface-tint" id="statTotalRecords">--</div>
-            <div class="text-[10px] text-on-surface-variant mt-4" id="statRecordDesc">Loading dataset info...</div>
+            <div class="text-3xl font-bold text-surface-tint" id="statTotalRecords">--</div>
+            <div class="text-[10px] text-on-surface-variant mt-3" id="statRecordDesc">Loading dataset info...</div>
         </div>
-        <div class="clinical-panel p-6 flex flex-col justify-between panel-hover">
+        <div class="clinical-panel p-5 panel-hover">
             <div class="font-mono text-[10px] text-on-surface-variant uppercase mb-2">Positive Cases</div>
-            <div class="text-4xl font-bold" id="statPositive">--</div>
-            <div class="w-full bg-surface-container h-1 mt-4">
+            <div class="text-3xl font-bold" id="statPositive">--</div>
+            <div class="w-full bg-surface-container h-1 mt-3">
                 <div class="bg-error h-full transition-all duration-700" id="statPositiveBar" style="width: 0%"></div>
             </div>
         </div>
-        <div class="clinical-panel p-6 flex flex-col justify-between panel-hover">
+        <div class="clinical-panel p-5 panel-hover">
             <div class="font-mono text-[10px] text-on-surface-variant uppercase mb-2">Negative Cases</div>
-            <div class="text-4xl font-bold text-surface-tint" id="statNegative">--</div>
-            <div class="w-full bg-surface-container h-1 mt-4">
+            <div class="text-3xl font-bold text-surface-tint" id="statNegative">--</div>
+            <div class="w-full bg-surface-container h-1 mt-3">
                 <div class="bg-surface-tint h-full transition-all duration-700" id="statNegativeBar" style="width: 0%"></div>
             </div>
         </div>
@@ -501,7 +675,7 @@
         <div class="flex items-center gap-3 mb-6">
             <button onclick="showVitalsPanel()" class="material-symbols-outlined text-on-surface-variant hover:text-white transition-colors">arrow_back</button>
             <h2 class="font-headline text-xl text-white font-bold">LOW RISK vs HIGH RISK <span class="text-surface-tint">VITALS</span></h2>
-            <span class="font-mono text-[9px] text-on-surface-variant uppercase">(computed from heart.csv — not hardcoded)</span>
+            <span class="font-mono text-[9px] text-on-surface-variant uppercase">(computed from heart.csv)</span>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="riskComparisonGrid">
@@ -511,15 +685,28 @@
 
     <!-- ========= DATASET PANEL (hidden) ========= -->
     <div id="datasetPanel" class="hidden">
-        <div class="flex items-center gap-3 mb-6">
-            <button onclick="showVitalsPanel()" class="material-symbols-outlined text-on-surface-variant hover:text-white transition-colors">arrow_back</button>
-            <h2 class="font-headline text-xl text-white font-bold">DATASET <span class="text-surface-tint">EXPLORER</span></h2>
+        <div class="flex items-center justify-between gap-3 mb-6">
+            <div class="flex items-center gap-3">
+                <button onclick="showVitalsPanel()" class="material-symbols-outlined text-on-surface-variant hover:text-white transition-colors">arrow_back</button>
+                <h2 class="font-headline text-xl text-white font-bold">DATASET <span class="text-surface-tint">EXPLORER</span></h2>
+                <span class="font-mono text-[9px] text-on-surface-variant uppercase" id="datasetCount"></span>
+            </div>
+            <div class="flex items-center gap-3">
+                <input id="datasetSearch" class="bg-surface-container border border-outline-variant px-3 py-1.5 text-xs font-mono text-white rounded focus:border-surface-tint focus:outline-none w-48" placeholder="Filter records..." onkeyup="filterDataset(this.value)"/>
+            </div>
         </div>
-        <div class="clinical-panel p-4 overflow-x-auto">
+        <div class="clinical-panel p-4 overflow-x-auto max-h-[600px] overflow-y-auto">
             <table class="w-full text-xs font-mono" id="datasetTable">
-                <thead id="datasetHead"></thead>
+                <thead id="datasetHead" class="sticky top-0 z-10"></thead>
                 <tbody id="datasetBody"></tbody>
             </table>
+        </div>
+        <div class="flex items-center justify-between mt-4 font-mono text-[10px] text-on-surface-variant">
+            <span id="datasetShowing">Showing 0 records</span>
+            <div class="flex gap-2">
+                <button onclick="datasetPrevPage()" class="px-3 py-1 bg-surface-container border border-outline-variant hover:border-surface-tint transition-colors">&lt; Prev</button>
+                <button onclick="datasetNextPage()" class="px-3 py-1 bg-surface-container border border-outline-variant hover:border-surface-tint transition-colors">Next &gt;</button>
+            </div>
         </div>
     </div>
 
@@ -528,7 +715,7 @@
 
 <!-- ==================== RESULT MODAL ==================== -->
 <div id="resultModal" class="fixed inset-0 bg-background/95 backdrop-blur-xl z-[100] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300" style="display:none;">
-    <div class="clinical-panel p-8 lg:p-10 max-w-3xl w-full text-center relative overflow-hidden" id="resultModalContent">
+    <div class="clinical-panel p-8 lg:p-10 max-w-3xl w-full text-center relative overflow-hidden max-h-[90vh] overflow-y-auto" id="resultModalContent">
         <div class="absolute inset-0 pointer-events-none" id="resultModalGlow"></div>
 
         <div class="relative z-10">
@@ -538,13 +725,56 @@
             <h2 class="text-6xl lg:text-7xl font-bold mb-2 tracking-tight" id="resultScore">0%</h2>
             <div class="font-mono text-xs text-on-surface-variant mb-6" id="resultConfidence"></div>
 
-            <div class="w-full h-1.5 bg-surface-container mb-8 rounded-full overflow-hidden">
+            <div class="w-full h-1.5 bg-surface-container mb-4 rounded-full overflow-hidden">
                 <div id="resultBar" class="h-full transition-all duration-1000 ease-out" style="width: 0%"></div>
             </div>
 
-            <p class="text-base text-on-surface-variant mb-8 leading-relaxed" id="resultText"></p>
+            <!-- Model Votes -->
+            <div id="modelVotesBox" class="grid grid-cols-3 gap-3 mb-6 hidden">
+                <div class="bg-surface-container-lowest border border-outline-variant p-3 text-center">
+                    <div class="font-mono text-[9px] text-on-surface-variant uppercase mb-1">Random Forest</div>
+                    <div class="font-mono text-sm font-bold" id="voteRF">--</div>
+                </div>
+                <div class="bg-surface-container-lowest border border-outline-variant p-3 text-center">
+                    <div class="font-mono text-[9px] text-on-surface-variant uppercase mb-1">XGBoost</div>
+                    <div class="font-mono text-sm font-bold" id="voteXGB">--</div>
+                </div>
+                <div class="bg-surface-container-lowest border border-outline-variant p-3 text-center">
+                    <div class="font-mono text-[9px] text-on-surface-variant uppercase mb-1">SVM (RBF)</div>
+                    <div class="font-mono text-sm font-bold" id="voteSVM">--</div>
+                </div>
+            </div>
 
-            <div id="recommendationsBox" class="bg-surface-container-lowest p-6 text-left mb-8 hidden border border-outline-variant">
+            <div id="xaiBox" class="bg-surface-container-low border border-outline-variant p-4 text-sm font-mono text-white mb-6 hidden text-left">
+                <span class="material-symbols-outlined text-sm align-middle mr-2 text-surface-tint">psychology</span>
+                <span id="xaiReasonText">Analyzing risk drivers...</span>
+            </div>
+
+            <div class="bg-surface-container-lowest p-6 text-left mb-6 border border-outline-variant text-sm text-on-surface-variant">
+                <h3 class="font-bold text-white mb-4 border-b border-outline-variant pb-2">Ensemble Architecture Insights</h3>
+                <ul class="list-disc pl-5 space-y-2 mb-4 text-xs font-mono">
+                    <li><strong class="text-surface-tint">Random Forest Ensemble:</strong> Leverages Bagging logic to prevent model overfitting.</li>
+                    <li><strong class="text-surface-tint">XGBoost (Gradient Boosting):</strong> Optimizes the loss function through sequential decision-tree refinement.</li>
+                    <li><strong class="text-surface-tint">Kernel-based SVM:</strong> Maps physiological data into a high-dimensional feature space using the RBF (Radial Basis Function) kernel for non-linear separation.</li>
+                </ul>
+                <div class="flex items-start gap-2 bg-surface-container-low p-3 border-l-4 border-surface-tint">
+                    <span class="material-symbols-outlined text-surface-tint text-base mt-0.5">account_tree</span>
+                    <p class="text-xs">
+                        <strong class="text-white">Decision Logic:</strong> Majority Voting (Stacking). The final risk assessment is a consensus derived from all three architectures to ensure clinical reliability.
+                    </p>
+                </div>
+            </div>
+
+            <div id="matlabBadge" class="hidden mb-4">
+                <div class="inline-flex items-center gap-2 bg-surface-container border border-surface-tint/30 px-3 py-1.5 rounded text-xs font-mono">
+                    <span class="material-symbols-outlined text-surface-tint text-sm">verified</span>
+                    <span class="text-surface-tint">MATLAB Engine — Live Inference</span>
+                </div>
+            </div>
+
+            <p class="text-base text-on-surface-variant mb-6 leading-relaxed" id="resultText"></p>
+
+            <div id="recommendationsBox" class="bg-surface-container-lowest p-6 text-left mb-6 hidden border border-outline-variant">
                 <h4 class="text-[10px] font-mono uppercase tracking-widest mb-4 flex items-center gap-3 text-white">
                     <span class="material-symbols-outlined text-surface-tint text-sm">task_alt</span>
                     Clinical Action Plan
@@ -552,15 +782,79 @@
                 <ul id="recommendationsList" class="space-y-3"></ul>
             </div>
 
-            <button onclick="closeModal()" class="px-8 py-3 bg-surface-container hover:bg-surface-container-high text-white font-mono text-[10px] uppercase tracking-widest border border-outline-variant hover:border-surface-tint transition-all">
-                Acknowledge &amp; Close
-            </button>
+            <!-- Self-Learning Teaching Mode -->
+            <div id="teachingModeBox" class="bg-surface-container-lowest p-6 text-left mb-6 border border-surface-tint/30 hidden">
+                <h4 class="text-[10px] font-mono uppercase tracking-widest mb-3 flex items-center gap-3 text-surface-tint">
+                    <span class="material-symbols-outlined text-sm">school</span>
+                    Teaching Mode — Self-Learning
+                </h4>
+                <p class="text-xs font-mono text-on-surface-variant mb-4">As the clinician, confirm or override the AI's diagnosis to teach the model. Your feedback is appended to the dataset and the model retrains automatically.</p>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button onclick="teachConfirm()" id="teachConfirmBtn" class="flex-1 py-2.5 bg-surface-tint/10 hover:bg-surface-tint/20 text-surface-tint font-mono text-[10px] uppercase tracking-widest border border-surface-tint/40 hover:border-surface-tint transition-all flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">thumb_up</span>
+                        Confirm Diagnosis
+                    </button>
+                    <button onclick="teachOverride()" id="teachOverrideBtn" class="flex-1 py-2.5 bg-error/10 hover:bg-error/20 text-error font-mono text-[10px] uppercase tracking-widest border border-error/40 hover:border-error transition-all flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">thumb_down</span>
+                        Override Diagnosis
+                    </button>
+                </div>
+                <div id="teachingStatus" class="mt-4 hidden">
+                    <div class="flex items-center gap-2 font-mono text-xs">
+                        <span class="material-symbols-outlined text-surface-tint text-sm animate-spin" id="teachSpinner">sync</span>
+                        <span id="teachStatusText" class="text-on-surface-variant">Processing...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <button onclick="window.print()" class="px-8 py-3 bg-surface-tint/10 hover:bg-surface-tint/20 text-surface-tint font-mono text-[10px] uppercase tracking-widest border border-surface-tint/40 hover:border-surface-tint transition-all flex items-center gap-2 justify-center">
+                    <span class="material-symbols-outlined text-sm">print</span> Print Diagnostic PDF
+                </button>
+                <button onclick="closeModal()" class="px-8 py-3 bg-surface-container hover:bg-surface-container-high text-white font-mono text-[10px] uppercase tracking-widest border border-outline-variant hover:border-surface-tint transition-all">
+                    Acknowledge &amp; Close
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- ==================== JAVASCRIPT ==================== -->
 <script>
+// ====== STATE ======
+let currentPanel = 'vitals';
+let datasetData = [];
+let datasetPage = 0;
+const DATASET_PAGE_SIZE = 50;
+let lastPrediction = null;
+
+// ====== PROFILE ======
+function loadProfile() {
+    const name = localStorage.getItem('cardioscan_clinician_name') || 'Dr. User';
+    const role = localStorage.getItem('cardioscan_clinician_role') || 'Cardiologist';
+    document.getElementById('clinicianName').textContent = name;
+    document.getElementById('profileNameInput').value = name;
+    document.getElementById('profileRoleInput').value = role;
+}
+function editProfile() {
+    const modal = document.getElementById('profileModal');
+    modal.style.display = 'flex';
+    modal.classList.remove('hidden');
+    document.getElementById('profileNameInput').focus();
+}
+function closeProfileModal() {
+    document.getElementById('profileModal').style.display = 'none';
+}
+function saveProfile() {
+    const name = document.getElementById('profileNameInput').value.trim() || 'Dr. User';
+    const role = document.getElementById('profileRoleInput').value.trim() || 'Cardiologist';
+    localStorage.setItem('cardioscan_clinician_name', name);
+    localStorage.setItem('cardioscan_clinician_role', role);
+    document.getElementById('clinicianName').textContent = name;
+    closeProfileModal();
+    addNotification('Profile updated: ' + name);
+}
+
 // ====== TOGGLE HELPERS ======
 function toggleFBS() {
     const pill = document.getElementById('fbs_toggle');
@@ -587,6 +881,7 @@ function toggleExang() {
         hidden.value = '0';
         label.textContent = 'NO';
         tag.textContent = 'Stable';
+        tag.style.borderColor = '';
     } else {
         pill.classList.add('active');
         hidden.value = '1';
@@ -599,33 +894,68 @@ function toggleExang() {
 // ====== NAVIGATION ======
 function showVitalsPanel() {
     document.getElementById('vitalsPanel').classList.remove('hidden');
+    document.getElementById('vitalsPanel').classList.add('panel-fade-in');
     document.getElementById('statsPanel').classList.add('hidden');
     document.getElementById('datasetPanel').classList.add('hidden');
     setActiveNav('navVitals');
+    currentPanel = 'vitals';
 }
 function showStatsPanel() {
     document.getElementById('vitalsPanel').classList.add('hidden');
     document.getElementById('statsPanel').classList.remove('hidden');
+    document.getElementById('statsPanel').classList.add('panel-fade-in');
     document.getElementById('datasetPanel').classList.add('hidden');
     setActiveNav('navStats');
+    currentPanel = 'stats';
     loadRiskComparison();
 }
 function showDatasetPanel() {
     document.getElementById('vitalsPanel').classList.add('hidden');
     document.getElementById('statsPanel').classList.add('hidden');
     document.getElementById('datasetPanel').classList.remove('hidden');
+    document.getElementById('datasetPanel').classList.add('panel-fade-in');
     setActiveNav('navDataset');
+    currentPanel = 'dataset';
     loadDataset();
 }
 function setActiveNav(id) {
     document.querySelectorAll('aside nav a').forEach(a => {
         a.classList.remove('sidebar-active');
-        a.classList.add('text-on-surface-variant');
     });
     const el = document.getElementById(id);
     if (el) {
         el.classList.add('sidebar-active');
-        el.classList.remove('text-on-surface-variant');
+    }
+}
+
+// ====== DROPDOWNS ======
+function toggleDropdown(id) {
+    const panel = document.getElementById(id);
+    const isOpen = panel.classList.contains('open');
+    // Close all dropdowns
+    document.querySelectorAll('.dropdown-panel').forEach(d => d.classList.remove('open'));
+    if (!isOpen) panel.classList.add('open');
+}
+// Close dropdowns on click outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.dropdown-panel') && !e.target.closest('[onclick*="toggleDropdown"]')) {
+        document.querySelectorAll('.dropdown-panel').forEach(d => d.classList.remove('open'));
+    }
+});
+
+// ====== NOTIFICATIONS ======
+function addNotification(msg) {
+    const list = document.getElementById('notifList');
+    const time = new Date().toLocaleTimeString();
+    list.innerHTML = '<div class="flex items-start gap-3 text-xs border-b border-outline-variant/50 pb-2 mb-2"><span class="material-symbols-outlined text-surface-tint text-sm mt-0.5">info</span><div><span class="text-on-surface-variant">' + msg + '</span><div class="text-[9px] text-on-surface-variant/50 mt-0.5">' + time + '</div></div></div>' + list.innerHTML;
+}
+
+// ====== SEARCH ======
+function handleSearch(query) {
+    if (query.length > 0) {
+        showDatasetPanel();
+        document.getElementById('datasetSearch').value = query;
+        filterDataset(query);
     }
 }
 
@@ -673,19 +1003,38 @@ function loadStats() {
             document.getElementById('statRecordDesc').textContent = data.columns.length + ' features across ' + data.total_records + ' patients';
             document.getElementById('statPositive').textContent = data.positive_cases;
             document.getElementById('statNegative').textContent = data.negative_cases;
+            document.getElementById('sidebarRecords').textContent = data.total_records + ' RECORDS';
+            document.getElementById('settingsRecords').textContent = data.total_records + ' records';
+            
             setTimeout(() => {
                 document.getElementById('statPositiveBar').style.width = data.risk_rate + '%';
                 document.getElementById('statNegativeBar').style.width = (100 - data.risk_rate) + '%';
             }, 300);
 
-            // Engine status (sidebar only)
+            // Engine status
             if (data.model_available) {
                 document.getElementById('engineStatus').textContent = 'MATLAB LINKED';
                 document.getElementById('modeIndicator').textContent = 'MATLAB MODE';
+                document.getElementById('modeIndicator').style.color = '#00dbe9';
+                document.getElementById('settingsEngineStatus').innerHTML = '<span style="color:#00dbe9">● MATLAB Connected</span>';
             } else {
                 document.getElementById('engineStatus').textContent = 'SIMULATION MODE';
                 document.getElementById('modeIndicator').textContent = 'SIMULATION MODE';
                 document.getElementById('modeIndicator').style.color = '#ffd700';
+                document.getElementById('settingsEngineStatus').innerHTML = '<span style="color:#ffd700">● Simulation Mode</span>';
+            }
+            
+            // Model accuracy
+            if (data.model_info && data.model_info.ensemble_acc > 0) {
+                const acc = data.model_info.ensemble_acc.toFixed(1);
+                document.getElementById('sidebarAccuracy').textContent = 'ACCURACY: ' + acc + '%';
+                document.getElementById('accuracyRow').style.display = 'flex';
+                document.getElementById('headerModelAcc').textContent = acc + '%';
+                document.getElementById('headerAccPanel').style.display = 'flex';
+                document.getElementById('settingsModelAcc').textContent = acc + '% ensemble';
+                if (data.model_info.last_trained) {
+                    document.getElementById('settingsLastTrained').textContent = data.model_info.last_trained;
+                }
             }
 
             document.getElementById('mainStatusText').textContent = 'Synchronized';
@@ -735,15 +1084,66 @@ function loadRiskComparison() {
 function loadDataset() {
     $.getJSON('/api/dataset', function(data) {
         if (!data.success) return;
-        const head = document.getElementById('datasetHead');
-        const body = document.getElementById('datasetBody');
-        head.innerHTML = '<tr>' + data.columns.map(c => '<th class="px-3 py-2 text-left text-[9px] uppercase text-on-surface-variant border-b border-outline-variant bg-surface-container-high sticky top-0">' + c + '</th>').join('') + '</tr>';
-        body.innerHTML = data.data.slice(0, 50).map((row, i) => {
-            const target = row.target !== undefined ? row.target : row[data.columns[data.columns.length - 1]];
-            const rowClass = target >= 1 ? 'bg-error/5' : '';
-            return '<tr class="hover:bg-surface-container transition-colors ' + rowClass + '">' + data.columns.map(c => '<td class="px-3 py-1.5 border-b border-outline-variant/30">' + (row[c] !== undefined ? row[c] : '') + '</td>').join('') + '</tr>';
-        }).join('');
+        datasetData = data.data;
+        datasetPage = 0;
+        document.getElementById('datasetCount').textContent = data.total + ' records';
+        renderDatasetPage();
     });
+}
+
+function renderDatasetPage(filtered) {
+    const data = filtered || datasetData;
+    const head = document.getElementById('datasetHead');
+    const body = document.getElementById('datasetBody');
+    
+    if (data.length === 0) {
+        head.innerHTML = '';
+        body.innerHTML = '<tr><td class="p-4 text-center text-on-surface-variant">No records found</td></tr>';
+        document.getElementById('datasetShowing').textContent = 'No records';
+        return;
+    }
+    
+    const columns = Object.keys(data[0]);
+    head.innerHTML = '<tr>' + columns.map(c => '<th class="px-3 py-2 text-left text-[9px] uppercase text-on-surface-variant border-b border-outline-variant bg-surface-container-high">' + c + '</th>').join('') + '</tr>';
+    
+    const start = datasetPage * DATASET_PAGE_SIZE;
+    const end = Math.min(start + DATASET_PAGE_SIZE, data.length);
+    const pageData = data.slice(start, end);
+    
+    body.innerHTML = pageData.map((row, i) => {
+        const target = row.target !== undefined ? row.target : row[columns[columns.length - 1]];
+        const rowClass = target >= 1 ? 'bg-error/5' : '';
+        return '<tr class="hover:bg-surface-container transition-colors ' + rowClass + '">' + columns.map(c => '<td class="px-3 py-1.5 border-b border-outline-variant/30">' + (row[c] !== undefined ? row[c] : '') + '</td>').join('') + '</tr>';
+    }).join('');
+    
+    document.getElementById('datasetShowing').textContent = 'Showing ' + (start + 1) + '-' + end + ' of ' + data.length + ' records';
+}
+
+function filterDataset(query) {
+    if (!query) {
+        datasetPage = 0;
+        renderDatasetPage();
+        return;
+    }
+    const q = query.toLowerCase();
+    const filtered = datasetData.filter(row => {
+        return Object.values(row).some(v => String(v).toLowerCase().includes(q));
+    });
+    datasetPage = 0;
+    renderDatasetPage(filtered);
+}
+
+function datasetPrevPage() {
+    if (datasetPage > 0) {
+        datasetPage--;
+        renderDatasetPage();
+    }
+}
+function datasetNextPage() {
+    if ((datasetPage + 1) * DATASET_PAGE_SIZE < datasetData.length) {
+        datasetPage++;
+        renderDatasetPage();
+    }
 }
 
 // ====== MODAL ======
@@ -756,12 +1156,114 @@ function openModal() {
     const modal = document.getElementById('resultModal');
     modal.style.display = 'flex';
     modal.classList.remove('hidden');
+    // Scroll to top of modal content
+    document.getElementById('resultModalContent').scrollTop = 0;
     setTimeout(() => { modal.style.opacity = '1'; }, 50);
 }
 
 // ====== RUN ANALYSIS (alias for button in sidebar) ======
 function runAnalysis() {
+    // Switch to vitals panel first if not already there
+    if (currentPanel !== 'vitals') {
+        showVitalsPanel();
+    }
     document.getElementById('diagnosticForm').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+}
+
+// ====== MANUAL RETRAIN ======
+function manualRetrain() {
+    const btn = document.getElementById('retrainBtn');
+    btn.textContent = 'RETRAINING...';
+    btn.disabled = true;
+    
+    $.post('/api/retrain', function(data) {
+        btn.textContent = 'Retrain Model';
+        btn.disabled = false;
+        if (data.success) {
+            addNotification('Model retrained. Accuracy: ' + data.info.ensemble_acc.toFixed(1) + '%');
+            loadStats();
+        } else {
+            addNotification('Retrain failed: ' + (data.error || 'Unknown error'));
+        }
+    }).fail(function() {
+        btn.textContent = 'Retrain Model';
+        btn.disabled = false;
+        addNotification('Retrain failed: Connection error');
+    });
+}
+
+// ====== TEACHING MODE ======
+function teachConfirm() {
+    const prediction = lastPrediction;
+    if (!prediction) return;
+    // In this dataset: 0 = Disease (High Risk), 1 = Healthy (Low Risk)
+    // If AI predicted HIGH RISK (>50), confirm by setting target to 0
+    const target = prediction.risk > 50 ? 0 : 1;
+    submitTeaching(target);
+}
+
+function teachOverride() {
+    const prediction = lastPrediction;
+    if (!prediction) return;
+    // Opposite of above
+    const target = prediction.risk > 50 ? 1 : 0;
+    submitTeaching(target);
+}
+
+function submitTeaching(target) {
+    document.getElementById('teachConfirmBtn').disabled = true;
+    document.getElementById('teachOverrideBtn').disabled = true;
+    document.getElementById('teachingStatus').classList.remove('hidden');
+    document.getElementById('teachStatusText').textContent = 'Adding record to dataset and retraining model...';
+    
+    const formData = {
+        age: parseFloat($('#inp_age').val()),
+        sex: parseFloat($('#inp_sex').val()),
+        cp: parseFloat($('#inp_cp').val()),
+        trestbps: parseFloat($('#inp_trestbps').val()),
+        chol: parseFloat($('#inp_chol').val()),
+        fbs: parseFloat($('#fbs_hidden').val()),
+        restecg: parseFloat($('#inp_restecg').val()),
+        thalach: parseFloat($('#inp_thalach').val()),
+        exang: parseFloat($('#exang_hidden').val()),
+        oldpeak: parseFloat($('#inp_oldpeak').val()),
+        slope: parseFloat($('#inp_slope').val()),
+        ca: parseFloat($('#inp_ca').val()),
+        thal: parseFloat($('#inp_thal').val()),
+        target: target
+    };
+    
+    $.ajax({
+        url: '/api/add_record',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(formData),
+        success: function(data) {
+            if (data.success) {
+                document.getElementById('teachSpinner').classList.remove('animate-spin');
+                document.getElementById('teachSpinner').textContent = 'check_circle';
+                let msg = 'Record #' + data.new_record_count + ' added successfully.';
+                if (data.retrain_result && !data.retrain_result.error) {
+                    msg += ' Model retrained — Accuracy: ' + data.retrain_result.ensemble_acc.toFixed(1) + '%';
+                }
+                document.getElementById('teachStatusText').textContent = msg;
+                document.getElementById('teachStatusText').style.color = '#00dbe9';
+                addNotification(msg);
+                loadStats();
+            } else {
+                document.getElementById('teachSpinner').textContent = 'error';
+                document.getElementById('teachSpinner').classList.remove('animate-spin');
+                document.getElementById('teachStatusText').textContent = 'Error: ' + (data.error || 'Unknown');
+                document.getElementById('teachStatusText').style.color = '#ffb4ab';
+            }
+        },
+        error: function() {
+            document.getElementById('teachSpinner').textContent = 'error';
+            document.getElementById('teachSpinner').classList.remove('animate-spin');
+            document.getElementById('teachStatusText').textContent = 'Connection error';
+            document.getElementById('teachStatusText').style.color = '#ffb4ab';
+        }
+    });
 }
 
 // ====== FORM SUBMISSION ======
@@ -786,22 +1288,40 @@ $('#diagnosticForm').on('submit', function(e) {
         btn.disabled = false;
 
         if (data.success) {
+            lastPrediction = data;
             openModal();
 
             const risk = data.risk;
             const confidence = data.confidence;
             document.getElementById('resultScore').textContent = risk + '%';
             document.getElementById('resultConfidence').textContent = 'Confidence: ' + confidence + '%';
+            
+            if (data.xai_reason) {
+                document.getElementById('xaiBox').classList.remove('hidden');
+                document.getElementById('xaiReasonText').textContent = data.xai_reason;
+            }
 
             setTimeout(() => {
                 document.getElementById('resultBar').style.width = risk + '%';
             }, 400);
 
-            const recs = [];
-            const trestbps = parseFloat($('#inp_trestbps').val());
-            const chol = parseFloat($('#inp_chol').val());
-            const fbs = parseInt($('#fbs_hidden').val());
-            const exang = parseInt($('#exang_hidden').val());
+            // Model votes
+            if (data.model_votes) {
+                document.getElementById('modelVotesBox').classList.remove('hidden');
+                setVoteDisplay('voteRF', data.model_votes.rf);
+                setVoteDisplay('voteXGB', data.model_votes.xgb);
+                setVoteDisplay('voteSVM', data.model_votes.svm);
+            }
+
+            // MATLAB badge
+            if (data.matlab_used) {
+                document.getElementById('matlabBadge').classList.remove('hidden');
+            } else {
+                document.getElementById('matlabBadge').classList.add('hidden');
+            }
+
+            // Clinical Action Plan from server
+            const recs = data.clinical_plan || [];
 
             if (risk > 50) {
                 // HIGH RISK
@@ -816,12 +1336,6 @@ $('#diagnosticForm').on('submit', function(e) {
                 document.getElementById('resultText').textContent = 'HIGH RISK ALERT: Significant cardiovascular anomalies detected. Immediate clinical review is strongly recommended.';
                 document.getElementById('centerStatus').textContent = 'HIGH RISK DETECTED';
                 document.getElementById('centerStatus').style.color = '#ffb4ab';
-
-                recs.push("Schedule an urgent consultation with a cardiologist.");
-                if (trestbps > 130) recs.push("Monitor blood pressure daily — antihypertensive strategies recommended.");
-                if (chol > 200) recs.push("Initiate low-cholesterol diet and review statin therapy.");
-                if (fbs === 1) recs.push("Evaluate fasting glucose for diabetes management.");
-                if (exang === 1) recs.push("Avoid strenuous exertion until cleared by physician.");
             } else {
                 // LOW RISK
                 document.getElementById('resultScore').style.color = '#00dbe9';
@@ -835,14 +1349,9 @@ $('#diagnosticForm').on('submit', function(e) {
                 document.getElementById('resultText').textContent = 'LOW RISK: Cardiovascular telemetry within optimal parameters. No significant anomalies detected.';
                 document.getElementById('centerStatus').textContent = 'OPTIMAL READINGS';
                 document.getElementById('centerStatus').style.color = '#00dbe9';
-
-                recs.push("Maintain current cardiovascular health routines.");
-                recs.push("Continue regular moderate exercise (150+ min/week).");
-                recs.push("Balanced diet rich in fiber, vegetables, and lean proteins.");
-                if (trestbps > 120) recs.push("Periodically monitor blood pressure — slightly elevated.");
-                if (chol > 200) recs.push("Incorporate soluble fiber for borderline cholesterol management.");
             }
 
+            // Render clinical plan
             const list = document.getElementById('recommendationsList');
             list.innerHTML = '';
             recs.forEach(r => {
@@ -850,6 +1359,15 @@ $('#diagnosticForm').on('submit', function(e) {
                 list.innerHTML += '<li class="flex items-start gap-3"><span class="material-symbols-outlined ' + color + ' text-sm shrink-0 mt-0.5">chevron_right</span><span class="text-on-surface-variant text-sm leading-relaxed">' + r + '</span></li>';
             });
             document.getElementById('recommendationsBox').classList.remove('hidden');
+
+            // Show teaching mode
+            document.getElementById('teachingModeBox').classList.remove('hidden');
+            document.getElementById('teachConfirmBtn').disabled = false;
+            document.getElementById('teachOverrideBtn').disabled = false;
+            document.getElementById('teachingStatus').classList.add('hidden');
+            document.getElementById('teachSpinner').textContent = 'sync';
+            document.getElementById('teachSpinner').classList.add('animate-spin');
+            document.getElementById('teachStatusText').style.color = '';
 
         } else {
             alert('DIAGNOSTIC ERROR: ' + (data.error || 'Unknown error'));
@@ -865,6 +1383,20 @@ $('#diagnosticForm').on('submit', function(e) {
     });
 });
 
+function setVoteDisplay(elementId, vote) {
+    const el = document.getElementById(elementId);
+    if (vote === 1) {
+        el.innerHTML = '<span class="vote-dot vote-high mr-1"></span> HIGH RISK';
+        el.style.color = '#ffb4ab';
+    } else if (vote === 0) {
+        el.innerHTML = '<span class="vote-dot vote-low mr-1"></span> LOW RISK';
+        el.style.color = '#00dbe9';
+    } else {
+        el.textContent = '--';
+        el.style.color = '';
+    }
+}
+
 // ====== MICRO-ANIMATIONS ======
 setInterval(() => {
     const dots = document.querySelectorAll('.status-dot');
@@ -875,6 +1407,7 @@ setInterval(() => {
 
 // ====== INIT ======
 $(document).ready(function() {
+    loadProfile();
     loadStats();
 });
 </script>
