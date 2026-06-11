@@ -82,6 +82,52 @@ function results = train_model()
         'n_records', 'training_time_str');
     
     fprintf('\nModel saved to heart_ai_model.mat\n');
+
+    % ---- Visualize Training Results ----
+    fprintf('Generating Training Performance Graph...\n');
+    f = figure('Name', 'CardioScan AI Training Status', 'NumberTitle', 'off', 'Position', [100, 100, 900, 500]);
+    
+    subplot(1, 2, 1);
+    bar(feature_importance * 100, 'FaceColor', [0, 0.86, 0.91]); 
+    title('Ensemble Feature Importance');
+    set(gca, 'XTick', 1:13, 'XTickLabel', predictorNames);
+    xtickangle(45);
+    ylabel('Relative Importance (%)');
+    grid on;
+    
+    subplot(1, 2, 2);
+    models = {'Random Forest', 'XGBoost', 'SVM', 'Ensemble Avg'};
+    accs = [acc_rf, acc_xgb, acc_svm, ensemble_acc] * 100;
+    b = bar(accs);
+    b.FaceColor = 'flat';
+    b.CData(4,:) = [0, 0.86, 0.91]; % Highlight ensemble
+    title(sprintf('5-Fold CV Accuracy (N=%d)', n_records));
+    set(gca, 'XTick', 1:4, 'XTickLabel', models);
+    xtickangle(45);
+    ylabel('Accuracy (%)');
+    ylim([max(0, min(accs)-5), 100]);
+    grid on;
+    
+    % Add text labels on bars
+    for i = 1:4
+        text(i, accs(i) + 1, sprintf('%.1f%%', accs(i)), 'HorizontalAlignment', 'center', 'FontWeight', 'bold');
+    end
+
+    drawnow;
+    
+    try
+        saveas(f, 'model_training_graph.png');
+        if exist('static', 'dir')
+            saveas(f, 'static/model_training_graph.png');
+        end
+    catch
+    end
+
+    % Only close the figure if running headless (Python Engine)
+    if ~usejava('desktop')
+        close(f);
+    end
+
     fprintf('=== Training Complete ===\n');
     
     % Return results as array for Python consumption
