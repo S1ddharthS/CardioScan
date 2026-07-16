@@ -85,9 +85,9 @@ function results = train_model()
 
     % ---- Visualize Training Results ----
     fprintf('Generating Training Performance Graph...\n');
-    f = figure('Name', 'CardioScan AI Training Status', 'NumberTitle', 'off', 'Position', [100, 100, 900, 500]);
+    f = figure('Name', 'CardioScan AI Training Status', 'NumberTitle', 'off', 'Position', [100, 100, 1300, 450]);
     
-    subplot(1, 2, 1);
+    subplot(1, 3, 1);
     bar(feature_importance * 100, 'FaceColor', [0, 0.86, 0.91]); 
     title('Ensemble Feature Importance');
     set(gca, 'XTick', 1:13, 'XTickLabel', predictorNames);
@@ -95,7 +95,7 @@ function results = train_model()
     ylabel('Relative Importance (%)');
     grid on;
     
-    subplot(1, 2, 2);
+    subplot(1, 3, 2);
     models = {'Random Forest', 'XGBoost', 'SVM', 'Ensemble Avg'};
     accs = [acc_rf, acc_xgb, acc_svm, ensemble_acc] * 100;
     b = bar(accs);
@@ -112,6 +112,14 @@ function results = train_model()
     for i = 1:4
         text(i, accs(i) + 1, sprintf('%.1f%%', accs(i)), 'HorizontalAlignment', 'center', 'FontWeight', 'bold');
     end
+
+    subplot(1, 3, 3);
+    err_rf = oobLoss(mdl_rf, 'Mode', 'cumulative');
+    plot(err_rf * 100, 'LineWidth', 2.5, 'Color', [1 0.3 0.4]);
+    title('Random Forest Learning Curve');
+    xlabel('Number of Trees (Learning Cycles)');
+    ylabel('Cumulative OOB Error (%)');
+    grid on;
 
     drawnow;
     
