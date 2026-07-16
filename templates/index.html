@@ -453,23 +453,79 @@
                 </div>
             </div>
 
-            <div class="relative py-8 lg:py-12 flex justify-center items-center">
-                <div class="w-48 h-48 lg:w-64 lg:h-64 rounded-full border border-surface-tint/20 flex items-center justify-center relative">
-                    <div class="w-32 h-32 lg:w-48 lg:h-48 rounded-full border border-surface-tint/40 flex items-center justify-center relative">
-                        <div class="w-16 h-16 lg:w-24 lg:h-24 rounded-full bg-surface-tint/10 border border-surface-tint flex items-center justify-center shadow-[0_0_20px_rgba(0,219,233,0.2)]">
-                            <span class="material-symbols-outlined text-surface-tint text-4xl">monitor_heart</span>
-                        </div>
-                    </div>
+            <div class="relative py-8 lg:py-12 flex justify-center items-center w-full">
+                <!-- Working Telemetry Radar Chart -->
+                <div class="w-full h-48 lg:h-64 flex justify-center items-center relative z-10" style="max-width: 300px; margin: 0 auto;">
+                    <canvas id="telemetryChart"></canvas>
                 </div>
-                <!-- Annotation pointers -->
-                <div class="absolute top-12 -left-8 lg:-left-12 hidden lg:flex items-center gap-2">
-                    <div class="h-[1px] w-12 bg-surface-tint"></div>
-                    <div class="bg-surface-container border border-surface-tint px-2 py-1 font-mono text-[9px] uppercase text-white whitespace-nowrap">Core Analysis</div>
-                </div>
-                <div class="absolute bottom-16 -right-10 lg:-right-16 hidden lg:flex items-center gap-2">
-                    <div class="bg-surface-container border border-outline-variant px-2 py-1 font-mono text-[9px] uppercase text-on-surface-variant whitespace-nowrap">Telemetry Map</div>
-                    <div class="h-[1px] w-8 bg-outline-variant"></div>
-                </div>
+                <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                <script>
+                    document.addEventListener("DOMContentLoaded", function() {
+                        const ctx = document.getElementById('telemetryChart').getContext('2d');
+                        Chart.defaults.color = '#e5e1e4';
+                        Chart.defaults.font.family = 'Geist, sans-serif';
+                        
+                        const chart = new Chart(ctx, {
+                            type: 'radar',
+                            data: {
+                                labels: ['Blood Press.', 'Cholesterol', 'Max HR', 'Age', 'ST Depress.', 'Vessels'],
+                                datasets: [{
+                                    label: 'Patient Vitals',
+                                    data: [0, 0, 0, 0, 0, 0],
+                                    backgroundColor: 'rgba(0, 219, 233, 0.2)',
+                                    borderColor: '#00dbe9',
+                                    pointBackgroundColor: '#00dbe9',
+                                    pointBorderColor: '#fff',
+                                    pointHoverBackgroundColor: '#fff',
+                                    pointHoverBorderColor: '#00dbe9',
+                                    borderWidth: 1.5,
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    r: {
+                                        angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                        pointLabels: { color: '#00dbe9', font: { size: 10, family: 'monospace' } },
+                                        ticks: { display: false, min: 0, max: 100 }
+                                    }
+                                },
+                                plugins: {
+                                    legend: { display: false }
+                                }
+                            }
+                        });
+
+                        function updateChart() {
+                            const bp = parseFloat(document.getElementById('inp_trestbps').value) || 120;
+                            const chol = parseFloat(document.getElementById('inp_chol').value) || 200;
+                            const hr = parseFloat(document.getElementById('inp_thalach').value) || 150;
+                            const age = parseFloat(document.getElementById('inp_age').value) || 50;
+                            const oldpeak = parseFloat(document.getElementById('inp_oldpeak').value) || 0;
+                            const ca = parseFloat(document.getElementById('inp_ca').value) || 0;
+
+                            chart.data.datasets[0].data = [
+                                Math.min(100, (bp / 200) * 100),
+                                Math.min(100, (chol / 400) * 100),
+                                Math.min(100, (hr / 220) * 100),
+                                Math.min(100, (age / 100) * 100),
+                                Math.min(100, (oldpeak / 6) * 100),
+                                Math.min(100, (ca / 4) * 100)
+                            ];
+                            chart.update();
+                        }
+                        
+                        // Listen for changes
+                        const inputs = document.querySelectorAll('#diagnosticForm input, #diagnosticForm select');
+                        inputs.forEach(inp => inp.addEventListener('input', updateChart));
+                        inputs.forEach(inp => inp.addEventListener('change', updateChart));
+                        
+                        // Init
+                        setTimeout(updateChart, 500);
+                    });
+                </script>
             </div>
 
             <!-- Telemetry Summary -->
@@ -1125,11 +1181,11 @@ function runAnalysis() {
 // ====== MANUAL RETRAIN ======
 function manualRetrain() {
     const btn = document.getElementById('retrainBtn');
-    btn.textContent = 'RETRAINING...';
+    btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin mr-2 align-middle">sync</span> RETRAINING...';
     btn.disabled = true;
     
     $.post('/api/retrain', function(data) {
-        btn.textContent = 'Retrain Model';
+        btn.innerHTML = 'Retrain Model';
         btn.disabled = false;
         if (data.success) {
             addNotification('Model retrained. Accuracy: ' + data.info.ensemble_acc.toFixed(1) + '%');
@@ -1138,7 +1194,7 @@ function manualRetrain() {
             addNotification('Retrain failed: ' + (data.error || 'Unknown error'));
         }
     }).fail(function() {
-        btn.textContent = 'Retrain Model';
+        btn.innerHTML = 'Retrain Model';
         btn.disabled = false;
         addNotification('Retrain failed: Connection error');
     });
